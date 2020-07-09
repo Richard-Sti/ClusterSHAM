@@ -4,7 +4,6 @@ import sys
 sys.path.append('../')
 
 from PySHAM import surveys
-from PySHAM import mocks
 
 from settings import (rpmin, rpmax, nrpbins, pimax,
                       ncent)
@@ -29,7 +28,7 @@ nmults = [50]
 #===========================#
 
 rpbins = np.logspace(np.log10(rpmin), np.log10(rpmax), nrpbins + 1)
-model = mocks.ProjectedCorrelationFunc(survey, randoms_path, outfolder,\
+model = surveys.ProjectedCorrelationFunc(survey, randoms_path, outfolder,\
         nthreads, rpbins, pimax, ncent)
 
 # Submit jobs
