@@ -104,7 +104,7 @@ class Jackknife(object):
         return (np.digitize(Y, edges) - 1)*nboxes + np.digitize(X, edges) - 1
 
     @staticmethod
-    def subtract_pairs(counts, counts_sub, weight=1.0):
+    def _subtract_pairs(counts, counts_sub, weight=1.0):
         """A help fuction to substract pairs counted by Corrfunc, defined so
         as to follow the corrfunc data structure.
 
@@ -242,14 +242,14 @@ class Jackknife(object):
         RRsub_average, nrandsub_average =\
                 self._average_subvol_rr_pairs(randbins, randx, randy, randz)
         # Average number of RR pairs after removing one subvolume
-        RRjack = self.subtract_pairs(RR.copy(), RRsub_average)
+        RRjack = self._subtract_pairs(RR.copy(), RRsub_average)
         # Estimate average cross border RR
         centers = self._centers(randx, randy, randbins)
         RRcross_average = self._average_cross_rr_pairs(randbins, centers,
                                                        randx, randy, randz)
         # From the RR counts after removing one subvolume remove the average
         # number of pairs that has one pair outside, weighted by 0.5
-        RRjack = self.subtract_pairs(RRjack.copy(), RRcross_average,
+        RRjack = self._subtract_pairs(RRjack.copy(), RRcross_average,
                                      weight=0.5)
         # Now we begin the jackknifing process. However, here we already
         # precomputed the RR contribution and we know how many DD pairs are
@@ -277,8 +277,8 @@ class Jackknife(object):
                                          z[data_mask], randx[rand_mask],
                                          randy[rand_mask], randz[rand_mask])
                 # Subtract the pairs we just counted from the global
-                DDjack = self.subtract_pairs(DD.copy(), DDin)
-                DRjack = self.subtract_pairs(DR.copy(), DRin)
+                DDjack = self._subtract_pairs(DD.copy(), DDin)
+                DRjack = self._subtract_pairs(DR.copy(), DRin)
             # -----------------------------#
             # Pairs crossing the subvolume #
             # -----------------------------#
@@ -294,8 +294,8 @@ class Jackknife(object):
                                         randy[rand_around_mask],
                                         randz[rand_around_mask])
 
-            DDjack = self.subtract_pairs(DDjack.copy(), DDcross, weight=0.5)
-            DRjack = self.subtract_pairs(DRjack.copy(), DRcross, weight=0.5)
+            DDjack = self._subtract_pairs(DDjack.copy(), DDcross, weight=0.5)
+            DRjack = self._subtract_pairs(DRjack.copy(), DRcross, weight=0.5)
 
             wps.append(self._counts2wp(DDjack, DRjack, RRjack,
                                        ndata - ndata_here,
