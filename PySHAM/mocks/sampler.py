@@ -65,17 +65,18 @@ class AdaptiveGridSearch(object):
                 self._X = np.vstack([self._X, X])
         return X
 
-    def _grid_points(self, nside):
+    def _grid_points(self, nside, append=True):
         """Regular grid of points over the prior
         """
         points = np.meshgrid(*[np.linspace(self.widths[p].min,
                                self.widths[p].max, nside)
                                for p in self.pars])
         X = np.vstack([p.reshape(-1,) for p in points]).T
-        if self._X is None:
-            self._X = X
-        else:
-            self._X = np.vstack([self._X, X])
+        if append:
+            if self._X is None:
+                self._X = X
+            else:
+                self._X = np.vstack([self._X, X])
         return X
 
     def evaluate_function(self, X):
