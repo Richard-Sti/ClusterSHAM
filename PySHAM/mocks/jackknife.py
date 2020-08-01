@@ -22,7 +22,7 @@ class Jackknife(object):
         subside: float
             side length of the jackknife subvolume
     """
-    def __init__(self, boxsize, rpbins, pimax, subside):
+    def __init__(self, boxsize, rpbins, pimax, subside, Njobs=1):
         self._boxsize = None
         self._rpbins = None
         self._pimax = None
@@ -32,6 +32,7 @@ class Jackknife(object):
         self.rpbins = rpbins
         self.pimax = pimax
         self.subside = subside
+        self.Njobs = Njobs
 
         self.nrpbins = len(self.rpbins) - 1
 
@@ -68,7 +69,7 @@ class Jackknife(object):
     def subside(self, subside):
         if not isinstance(subside, (float, int)):
             raise ValueError('provide a float or int')
-        elif not self.boxsize // subside == 0:
+        elif not self.boxsize % subside == 0:
             raise ValueError('subside must divide boxsize')
         self._subside = float(subside)
 
@@ -86,9 +87,10 @@ class Jackknife(object):
 
     def _count_pairs(self, autocorr, x1, y1, z1, x2=None, y2=None, z2=None):
         """A wrapper around Corrfunc.theory.DDrppi"""
-        return Corrfunc.theory.DDrppi(autocorr, nthreads=1, pimax=self.pimax,
-                                      binfile=self.rpbins, X1=x1, Y1=y1, Z1=z1,
-                                      X2=x2, Y2=y2, Z2=z2, periodic=False)
+        return Corrfunc.theory.DDrppi(autocorr, nthreads=self.Njobs,
+                                      pimax=self.pimax, binfile=self.rpbins,
+                                      X1=x1, Y1=y1, Z1=z1, X2=x2, Y2=y2,
+                                      Z2=z2, periodic=False)
 
     def _counts2wp(self, DD, DR, RR, Nd, Nr):
         """A wrapper around Corrfunc.utils.convert_rp_pi_counts_to_wp"""
@@ -145,12 +147,12 @@ class Jackknife(object):
         # Calculate the average number of RR pairs both along line of sight
         # and orthogonal to it
         rrsub_average = rrsubs[0].copy()
-        for i in range(rrsub_average.size): # Start counting from the second subvol, first included already.
+        for i in range(rrsub_average.size):
+            # Start counting from the second subvol, first included already.
             for j in range(1, len(rrsubs)):
                 rrsub_average[i]['npairs'] += (rrsubs[j])[i]['npairs']
             # Get the average
-            (rrsub_average[i])['npairs'] = \
-                    int(round(rrsub_average[i])['npairs'] / len(rrsubs), 0)
+            rrsub_average[i]['npairs'] = int(round(rrsub_average[i]['npairs'] / len(rrsubs), 0))
 
         return rrsub_average, npoints_average
 
