@@ -70,10 +70,11 @@ class AdaptiveGridSearch(object):
             os.mkdir(outfolder)
         self._outfolder = outfolder
 
-    def _uniform_points(self, Npoints=1):
+    def _uniform_points(self, Npoints=1, seed=None):
         """Randomly picked points from a uniform distribution over
         the grid
         """
+        np.random.seed(seed)
         return np.array([np.random.uniform(self.widths[p].min,
                                            self.widths[p].width, Npoints)
                         for p in self.pars]).T
@@ -163,6 +164,21 @@ class AdaptiveGridSearch(object):
             self._hull = self.convex_hull()
             X = self._points_in_hull(nnew)
             print('Extra random search within the hull')
+            self.evaluate_function(X)
+            self._save()
+
+    def run_phase(self, phase, npoints, initial=True):
+        if initial:
+            nside = int((0.5*npoints)**(1/len(self.pars)))
+            X = np.vstack([self._grid_points(nside),
+                           self._uniform_points(int(0.5*npoints), seed=23)])
+            X = X[phase*100:(phase+1)*100, :]
+            self.evaluate_function(X)
+            self._save()
+        else:
+            self._hull = self.convex_hull()
+            X = self._points_in_hull(npoints)
+            X = X[phase*100:(phase+1)*100, :]
             self.evaluate_function(X)
             self._save()
 
