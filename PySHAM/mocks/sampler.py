@@ -110,10 +110,10 @@ class AdaptiveGridSearch(object):
         return Z
 
     def convex_hull(self):
-        Zsorted = np.sort(self._Z)
+        Zsorted = np.exp(np.sort(self._Z))
         Zcutoff = Zsorted[np.abs(np.cumsum(Zsorted/np.sum(Zsorted))
-                                 - 0.05).argmin()]
-        mask = np.where(self._Z > Zcutoff)
+                                 - 0.01).argmin()]
+        mask = np.where(np.exp(self._Z) > Zcutoff)
         return ConvexHull(self._X[mask, :].reshape(-1, len(self.pars)))
 
     def _in_hull(self, point, hull, tolerance=1e-12):
