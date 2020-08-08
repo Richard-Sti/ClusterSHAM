@@ -1,0 +1,46 @@
+[main]
+# projected correlation function settings 
+rpmin = 0.1
+rpmax = 25
+nrpbins = 12
+pimax = 60
+# number of centers for jackknifing observaitions
+ncent = 300
+
+# abundance matching setup
+Nmocks = 50
+boxsize = 400
+subside = 25
+
+# sampling setup
+adapt_dur = 1000
+npoints = 2000
+initial = True
+bins = 45
+
+halos = '../../BAM/hlist_1.00000.npy'
+Njobs = 10
+proxy = 'vvir'
+
+[NYUmatch]
+name = 'NYUmatch'
+    [NYUmatch.LF]
+        nd_gal = '../../Data/NYUmatch/LF_NYU.npy'
+        [NYUmatch.LF.0]
+            scope = [-30.0, -22.0]
+            alpha = [0.0, 1.0]
+            scatter = [0.005, 0.3]
+        [NYUmatch.LF.1]
+            scope = [-22.0, -21.0]
+            alpha = [0.0, 1.0]
+            scatter = [0.005, 0.3]
+        [NYUmatch.LF.2]
+            scope = [-21.0, -20.0]
+            alpha = [0.0, 1.0]
+            scatter = [0.005, 0.3]
+        [NYUmatch.LF.3]
+            scope = [-20.0, -19.0]
+            alpha = [0.0, 1.0]
+            scatter = [0.005, 0.3]
+
+
