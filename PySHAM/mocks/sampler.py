@@ -17,6 +17,7 @@ class AdaptiveGridSearch(object):
                  outfolder=None, nprocs=None):
         self._widths = None
         self._X = None
+        self.Xstored = None
         self._Z = None
         self._blobs = None
 
@@ -29,6 +30,7 @@ class AdaptiveGridSearch(object):
         self.outfolder = outfolder
 
         self._initialised = False
+        self._counter = 0
 
     @property
     def X(self):
@@ -113,7 +115,7 @@ class AdaptiveGridSearch(object):
     def convex_hull(self):
         Zsorted = np.exp(np.sort(self._Z))
         Zcutoff = Zsorted[np.abs(np.cumsum(Zsorted/np.sum(Zsorted))
-                                 - 0.01).argmin()]
+                                 - 0.005).argmin()]
         mask = np.where(np.exp(self._Z) > Zcutoff)
         return ConvexHull(self._X[mask, :].reshape(-1, len(self.pars)))
 
@@ -123,16 +125,20 @@ class AdaptiveGridSearch(object):
                    for eq in hull.equations)
 
     def _points_in_hull(self, npoints):
+        hull = self.convex_hull()
         newp = list()
         while True:
             p = self._uniform_points().reshape(-1,)
-            if self._in_hull(p, self._hull):
+            if self._in_hull(p, hull):
                 newp.append(p)
 
             if len(newp) >= npoints:
                 break
         X = np.array(newp)
         return X
+
+    def store_points(self, X):
+        self.Xstored = X
 
     def run(self, nnew=None):
         if not self._initialised:
@@ -167,20 +173,15 @@ class AdaptiveGridSearch(object):
             self.evaluate_function(X)
             self._save()
 
-    def run_phase(self, phase, npoints, initial=True):
-        if initial:
-            nside = int((0.5*npoints)**(1/len(self.pars)))
-            X = np.vstack([self._grid_points(nside),
-                           self._uniform_points(int(0.5*npoints), seed=23)])
-            X = X[phase*100:(phase+1)*100, :]
-            self.evaluate_function(X)
-            self._save()
+    def run_stored(self, npoints=100):
+        if self._counter == 0:
+            nsampled = 0
         else:
-            self._hull = self.convex_hull()
-            X = self._points_in_hull(npoints)
-            X = X[phase*100:(phase+1)*100, :]
-            self.evaluate_function(X)
-            self._save()
+            nsampled = self._counter
+        X = self.Xstored[nsampled:nsampled+100]
+        self.evaluate_function(X)
+        self._counter += npoints
+        self._save()
 
     def _save(self):
         """Save current progress"""

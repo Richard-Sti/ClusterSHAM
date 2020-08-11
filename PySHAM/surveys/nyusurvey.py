@@ -6,9 +6,9 @@ from .base import BaseSurvey
 
 class NYUSurvey(BaseSurvey):
     def __init__(self):
-        self.redshift_range = (0.01, 0.25)
+        self.redshift_range = (0.01, 0.15)
         self.apparent_mr_range = (10.0, 17.7)
-        self.survey_area = 7960.0
+        self.survey_area = 7100
 
         self._parse_catalog()
 

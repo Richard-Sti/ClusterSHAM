@@ -9,7 +9,7 @@ class NSASurvey(BaseSurvey):
         self.name = 'NSA'
         self.redshift_range = (0.01, 0.15)
         self.apparent_mr_range = (10.0, 17.6)
-        self.survey_area = 7960.0
+        self.survey_area = 7100
 
         self.photometry = photometry
         self._parse_catalog()

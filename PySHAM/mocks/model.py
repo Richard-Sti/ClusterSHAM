@@ -6,9 +6,8 @@ from warnings import filterwarnings
 
 import numpy as np
 
-import tracemalloc
+# from scipy.stats import multivariate_normal
 
-from time import time
 import Corrfunc
 
 from .jackknife import Jackknife
@@ -128,22 +127,14 @@ class Model(Jackknife):
 
     def logposterior(self, theta):
         """Log posterior"""
-        tracemalloc.start()
-        snapshot1 = tracemalloc.take_snapshot()
-        start = time()
         logp = self.logprior(theta)
         if not np.isfinite(logp):
             return -np.infty
         ll, blobs = self.loglikelihood(theta)
         logpost = logp + ll
-        snapshot2 = tracemalloc.take_snapshot()
-        top_stats = snapshot2.compare_to(snapshot1, 'lineno')
-        print('Finished posterior call in {:.1f} sec'.format(time() - start))
-
-        print("[ Top 10 differences ]")
-        for stat in top_stats[:10]:
-            print(stat)
         return logpost, blobs
+#        alpha, scatter = theta['alpha'], theta['scatter']
+#        return [multivariate_normal(mean=[0.5, 0.15], cov=0.1).logpdf([alpha, scatter]), 0]
 
 
 class Boundary(object):

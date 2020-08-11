@@ -21,7 +21,7 @@ def prep_halos(halos_path, tags):
     halos = np.load(halos_path)
 
     names = ['x', 'y', 'z'] + [tag for tag in tags]
-    formats = ['float32'] * len(names)
+    formats = ['float64'] * len(names)
     N = halos['x'].size
     out = np.zeros(N, dtype={'names': names, 'formats': formats})
     for name in names:

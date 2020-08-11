@@ -8,7 +8,6 @@ import numpy as np
 import Corrfunc
 
 import gc
-import tracemalloc
 
 
 class Jackknife(object):
@@ -35,7 +34,7 @@ class Jackknife(object):
         self.rpbins = rpbins
         self.pimax = pimax
         self.subside = subside
-        self.nthreads = Njobs
+        self.Njobs = Njobs
 
         self.nrpbins = len(self.rpbins) - 1
 
@@ -90,7 +89,7 @@ class Jackknife(object):
 
     def _count_pairs(self, autocorr, x1, y1, z1, x2=None, y2=None, z2=None):
         """A wrapper around Corrfunc.theory.DDrppi"""
-        return Corrfunc.theory.DDrppi(autocorr, nthreads=self.nthreads,
+        return Corrfunc.theory.DDrppi(autocorr, nthreads=self.Njobs,
                                       pimax=self.pimax, binfile=self.rpbins,
                                       X1=x1, Y1=y1, Z1=z1, X2=x2, Y2=y2,
                                       Z2=z2, periodic=False)
@@ -239,20 +238,9 @@ class Jackknife(object):
         # Number of subvolumes
         nsubs = np.unique(bins).size
         # Calculate pairs over the whole box
-        tracemalloc.start()
-        snapshot1 = tracemalloc.take_snapshot()
         DD = self._count_pairs(True, x, y, z)
         DR = self._count_pairs(False, x, y, z, randx, randy, randz)
         RR = self._count_pairs(True, randx, randy, randz)
-        snapshot2 = tracemalloc.take_snapshot()
-        top_stats = snapshot2.compare_to(snapshot1, 'lineno')
-
-        print("[ Top 10 differences inside 1 ]")
-        for stat in top_stats[:2]:
-            print(stat)
-
-        tracemalloc.start()
-        snapshot1 = tracemalloc.take_snapshot()
 
         # Estimate the average RR inside the subvolume
         RRsub_average, nrandsub_average =\
@@ -268,20 +256,12 @@ class Jackknife(object):
         RRjack = self._subtract_pairs(RRjack.copy(), RRcross_average,
                                      weight=0.5)
 
-        snapshot2 = tracemalloc.take_snapshot()
-        top_stats = snapshot2.compare_to(snapshot1, 'lineno')
-#
-        print("[ Top 10 differences inside 2 ]")
-        for stat in top_stats[:2]:
-            print(stat)
         # Now we begin the jackknifing process. However, here we already
         # precomputed the RR contribution and we know how many DD pairs are
         # in the whole box. So it is enough to count the DD and DR pairs
         # within each subvolume and subtract those from the total to obtain
         # the wp estimate
         wps = list()
-        tracemalloc.start()
-        snapshot1 = tracemalloc.take_snapshot()
         for i in range(nsubs):
             data_mask = np.where(bins == i)
             rand_mask = np.where(randbins == i)
@@ -326,15 +306,6 @@ class Jackknife(object):
             wps.append(self._counts2wp(DDjack, DRjack, RRjack,
                                        ndata - ndata_here,
                                        nrand - nrandsub_average))
-            del (DDjack, DRjack, DDcross, DRcross)
-            gc.collect()
 
         covmat = np.cov(np.array(wps), rowvar=False, bias=True) * (nsubs - 1)
-
-        snapshot2 = tracemalloc.take_snapshot()
-        top_stats = snapshot2.compare_to(snapshot1, 'lineno')
-#
-        print("[ Top 10 differences inside 2 ]")
-        for stat in top_stats[:2]:
-            print(stat)
         return covmat

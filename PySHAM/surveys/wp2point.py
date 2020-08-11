@@ -14,7 +14,7 @@ from Corrfunc.utils import convert_rp_pi_counts_to_wp
 from kmeans_radec import kmeans_sample
 from time import time
 
-from .. import dump_pickle
+from PySHAM.utils import dump_pickle
 
 class ProjectedCorrelationFunc(object):
     def __init__(self, survey, randoms_path, outfolder, nthreads, rpbins,\
