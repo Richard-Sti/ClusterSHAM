@@ -6,6 +6,7 @@ import argparse
 import toml
 
 from time import sleep
+import gc
 
 from PySHAM.mocks import (AdaptiveGridSearch, Model)
 from PySHAM import utils
@@ -49,7 +50,7 @@ else:
     raise ValueError('invalid proxy choice')
 
 halos = utils.prep_halos(halos_path=config['main']['halos'], tags=tags)
-outfolder = '../Data/{}/'.format(args.name)
+outfolder = '../results/{}/'.format(args.name)
 out_fname = 'AM{}_{}_{}_{}'.format(args.name, args.file_index,
                                    scope[0], scope[1])
 wp_fname = '../Data/{}/ObsCF{}_{}.p'.format(args.name, scope[0], scope[1])
@@ -94,6 +95,11 @@ out = {'grid': grid, 'fname': fname, 'i': i}
 utils.dump_pickle(fname_sub, out)
 os.system(comm.format(fname_sub))
 
+# clean memory
+del (halos, model, grid, survey_wp)
+gc.collect()
+
+
 i += 1
 print(comm.format(fname_sub))
 while True:
@@ -137,6 +143,9 @@ out = {'grid': grid, 'fname': fname, 'i': i}
 utils.dump_pickle(fname_sub, out)
 os.system(comm.format(fname_sub))
 
+del grid
+gc.collect()
+
 i += 1
 print(comm.format(fname_sub))
 while True:
@@ -154,7 +163,7 @@ while True:
 while True:
     if os.path.isfile(fname.format(i)):
         old_fname = './temp/grid_{}'.format(out_fname) + '_A{}.p'.format(i)
-        new_fname = './temp/grid_{}.p'.format(out_fname)
+        new_fname = './results/grid_{}.p'.format(out_fname)
         os.system('mv {} {}'.format(old_fname, new_fname))
         break
     sleep(60)
