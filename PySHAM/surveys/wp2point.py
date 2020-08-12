@@ -1,24 +1,22 @@
-#!/usr/bin/env python3
-# coding: utf-8 
-import numpy as np
-from scipy.constants import speed_of_light
-import matplotlib
-matplotlib.use('Agg')
+import sys
+from time import time
 import matplotlib.pyplot as plt
 
-import sys
+import numpy as np
+from scipy.constants import speed_of_light
 
+from kmeans_radec import kmeans_sample
 from Corrfunc.mocks import DDrppi_mocks
 from Corrfunc.utils import convert_rp_pi_counts_to_wp
 
-from kmeans_radec import kmeans_sample
-from time import time
-
 from PySHAM.utils import dump_pickle
 
+plt.switch_backend('Agg')
+
+
 class ProjectedCorrelationFunc(object):
-    def __init__(self, survey, randoms_path, outfolder, nthreads, rpbins,\
-            pimax=60.0, ncent=300):
+    def __init__(self, survey, randoms_path, outfolder, nthreads, rpbins,
+                 pimax=60.0, ncent=300):
         self.survey = survey
         self.outfolder = outfolder
         self.randoms_path = randoms_path
@@ -33,31 +31,28 @@ class ProjectedCorrelationFunc(object):
         """Returns random points and galaxies corresponding to given cut
         """
         # Get observed gals
-        mask = np.where(np.logical_and(\
-                self.survey.data[par] > scope[0],\
-                self.survey.data[par] < scope[1]))
-        obs = {'RA' : self.survey.data['RA'][mask],
+        mask = np.where(np.logical_and(self.survey.data[par] > scope[0],
+                                       self.survey.data[par] < scope[1]))
+        obs = {'RA': self.survey.data['RA'][mask],
                'DEC': self.survey.data['DEC'][mask],
-               'CZ' : self.survey.data['Z'][mask] * speed_of_light * 1e-3,}
+               'CZ': self.survey.data['Z'][mask] * speed_of_light * 1e-3}
         ngal = mask[0].size
         randsky = np.load(self.randoms_path)
-        rands = {'RA' : randsky['RA'][:nmult*ngal],
+        rands = {'RA': randsky['RA'][:nmult*ngal],
                  'DEC': randsky['DEC'][:nmult*ngal],
-                 'CZ' : np.random.choice(obs['CZ'], nmult*ngal, replace=True),}
+                 'CZ': np.random.choice(obs['CZ'], nmult*ngal, replace=True)}
         ncluster = mask[0].size
         mask = np.random.choice(np.arange(ncluster), ncluster, False)
         X = np.vstack([rands['RA'][mask], rands['DEC'][mask]]).T
-        kmeans = kmeans_sample(X, self.ncent, maxiter=250, tol=1.0e-5,\
-                            verbose=0)
+        kmeans = kmeans_sample(X, self.ncent, maxiter=250, tol=1.0e-5,
+                               verbose=0)
 
-        obs['labels'] = kmeans.find_nearest(np.vstack([obs['RA'],\
+        obs['labels'] = kmeans.find_nearest(np.vstack([obs['RA'],
                                             obs['DEC']]).T)
         rands['labels'] = kmeans.find_nearest(np.vstack([rands['RA'],
-                                            rands['DEC']]).T)
-
+                                              rands['DEC']]).T)
         obs['weights'] = np.ones_like(obs['RA'])
         rands['weights'] = np.ones_like(rands['RA'])
-
         return obs, rands
 
     def leave_one_out_wp(self, obs, rands, index_leftout):
@@ -76,28 +71,30 @@ class ProjectedCorrelationFunc(object):
         randweights = rands['weights'][mask_rand]
         nrands = randra.size
 
-        cosmology = 2 #planck cosmology
+        cosmology = 2  # planck cosmology
         # Auto pair counts in DD i.e. survey catalog
         autocorr = 1
-        dd_counts = DDrppi_mocks(autocorr, cosmology, self.nthreads,\
-                        self.pimax, self.rpbins, obsra, obsdec, obscz,\
-                        obsweights, weight_type='pair_product')
+        dd_counts = DDrppi_mocks(autocorr, cosmology, self.nthreads,
+                                 self.pimax, self.rpbins, obsra, obsdec,
+                                 obscz, obsweights,
+                                 weight_type='pair_product')
         # Cross pair counts in DR
         autocorr = 0
-        dr_counts = DDrppi_mocks(autocorr, cosmology, self.nthreads,\
-                        self.pimax, self.rpbins, obsra, obsdec, obscz,\
-                        RA2=randra, DEC2=randdec, CZ2=randcz,\
-                        weights1=obsweights, weights2=randweights,\
-                        weight_type='pair_product')
+        dr_counts = DDrppi_mocks(autocorr, cosmology, self.nthreads,
+                                 self.pimax, self.rpbins, obsra, obsdec,
+                                 obscz, RA2=randra, DEC2=randdec, CZ2=randcz,
+                                 weights1=obsweights, weights2=randweights,
+                                 weight_type='pair_product')
         # Auto pairs counts in RR i.e. random catalog
         autocorr = 1
-        rr_counts = DDrppi_mocks(autocorr, cosmology, self.nthreads,\
-                        self.pimax, self.rpbins, randra, randdec, randcz,\
-                        randweights, weight_type='pair_product')
+        rr_counts = DDrppi_mocks(autocorr, cosmology, self.nthreads,
+                                 self.pimax, self.rpbins, randra, randdec,
+                                 randcz, randweights,
+                                 weight_type='pair_product')
         # All the pair counts are done, get the project correlation function
-        return convert_rp_pi_counts_to_wp(nobs, nobs, nrands, nrands,\
-                dd_counts, dr_counts, dr_counts,\
-                rr_counts, self.nbins, self.pimax)
+        return convert_rp_pi_counts_to_wp(nobs, nobs, nrands, nrands,
+                                          dd_counts, dr_counts, dr_counts,
+                                          rr_counts, self.nbins, self.pimax)
 
     def jackknife_wp(self, obs, rands, scope):
         wps = list()
@@ -119,10 +116,11 @@ class ProjectedCorrelationFunc(object):
         return wp_mean, cov
 
     def save_data(self, wps, wp, cov, scope):
-        data = {'wp' : wp, 'cov' : cov, 'wps' : wps, 'cbins' :\
-        [0.5*(self.rpbins[i+1] + self.rpbins[i]) for i in range(self.nbins)]}
-        dump_pickle(self.outfolder + 'ObsCF{}_{}to{}.p'.format(\
-                self.survey.name, scope[0], scope[1]), data)
+        cbins = [0.5*(self.rpbins[i+1] + self.rpbins[i])
+                 for i in range(self.nbins)]
+        data = {'wp': wp, 'cov': cov, 'wps': wps, 'cbins': cbins}
+        dump_pickle(self.outfolder + 'ObsCF{}to{}.p'.format(scope[0],
+                                                            scope[1]), data)
 
     def diagnostic_plots(self, obs, rands, scope):
         plt.figure(dpi=240, figsize=(12, 8))
@@ -145,6 +143,7 @@ class ProjectedCorrelationFunc(object):
         plt.hist(rands['CZ']/3e5, bins=bins, histtype='step', label='rands',
                  density=1)
         plt.legend()
-        plt.savefig(self.outfolder + 'plots/CFcheck{}_{}to{}.png'.format(\
-                self.survey.name, scope[0], scope[1]))
+        p = '/mnt/zfsusers/rstiskalek/pysham/plots/diagnostics/CF{}_{}_{}.png'
+        p = p.format(self.survey.name, scope[0], scope[1])
+        plt.savefig(p)
         plt.close()

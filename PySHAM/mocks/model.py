@@ -133,8 +133,6 @@ class Model(Jackknife):
         ll, blobs = self.loglikelihood(theta)
         logpost = logp + ll
         return logpost, blobs
-#        alpha, scatter = theta['alpha'], theta['scatter']
-#        return [multivariate_normal(mean=[0.5, 0.15], cov=0.1).logpdf([alpha, scatter]), 0]
 
 
 class Boundary(object):
