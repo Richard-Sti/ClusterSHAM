@@ -36,4 +36,4 @@ string3="python3 simulation.py --name NYUmatch --type MF --cut 6"
 
 $string1 &
 $string2 &
-$string3 &
+$string3 

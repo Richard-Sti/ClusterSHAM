@@ -23,6 +23,7 @@ config = toml.load('config.toml')
 # ---------------------------------------- #
 
 scope = config[args.name][args.type][str(args.cut)]['scope']
+nmult = config[args.name][args.type][str(args.cut)]['Nmult']
 rpmin, rpmax, nrpbins, pimax, Njobs,\
         ncent = [config['main'][p] for p in ['rpmin', 'rpmax', 'nrpbins',
                                              'pimax', 'Njobs', 'ncent']]
@@ -30,14 +31,13 @@ if args.name == 'NYUmatch':
     survey = surveys.NYUSurvey()
     randoms_path = "/mnt/zfsusers/rstiskalek/pysham/data/RandCatNYU.npy"
 elif args.name == 'NSAmatch':
-    survey = surveys.NYUSurvey('SERSIC')
+    survey = surveys.NSASurvey('SERSIC')
     randoms_path = "/mnt/zfsusers/rstiskalek/pysham/data/RandCatNYU.npy"
 else:
     raise ValueError('unsupported survey')
 
-outfolder = '../Data/{}/'.format(args.name)
+outfolder = './results/{}/'.format(args.name)
 out_fname = 'ObsCF{}_{}.p'.format(scope[0], scope[1])
-nmult = 50
 if args.type == 'LF':
     handle = 'Mr'
 else:
