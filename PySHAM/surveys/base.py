@@ -70,20 +70,3 @@ class BaseSurvey(object):
     @abstractmethod
     def _parse_catalog(self):
         pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

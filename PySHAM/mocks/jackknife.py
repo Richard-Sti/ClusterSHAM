@@ -22,7 +22,7 @@ class Jackknife(object):
         subside: float
             side length of the jackknife subvolume
     """
-    def __init__(self, boxsize, rpbins, pimax, subside):
+    def __init__(self, boxsize, rpbins, pimax, subside, Njobs):
         self._boxsize = None
         self._rpbins = None
         self._pimax = None
@@ -32,6 +32,7 @@ class Jackknife(object):
         self.rpbins = rpbins
         self.pimax = pimax
         self.subside = subside
+        self.Njobs = Njobs
 
         self.nrpbins = len(self.rpbins) - 1
 
@@ -68,7 +69,7 @@ class Jackknife(object):
     def subside(self, subside):
         if not isinstance(subside, (float, int)):
             raise ValueError('provide a float or int')
-        elif not self.boxsize // subside == 0:
+        elif not self.boxsize % subside == 0:
             raise ValueError('subside must divide boxsize')
         self._subside = float(subside)
 
@@ -86,14 +87,17 @@ class Jackknife(object):
 
     def _count_pairs(self, autocorr, x1, y1, z1, x2=None, y2=None, z2=None):
         """A wrapper around Corrfunc.theory.DDrppi"""
-        return Corrfunc.theory.DDrppi(autocorr, nthreads=1, pimax=self.pimax,
-                                      binfile=self.rpbins, X1=x1, Y1=y1, Z1=z1,
-                                      X2=x2, Y2=y2, Z2=z2, periodic=False)
+        return Corrfunc.theory.DDrppi(autocorr, nthreads=self.Njobs,
+                                      pimax=self.pimax, binfile=self.rpbins,
+                                      X1=x1, Y1=y1, Z1=z1, X2=x2, Y2=y2,
+                                      Z2=z2, periodic=False)
 
     def _counts2wp(self, DD, DR, RR, Nd, Nr):
         """A wrapper around Corrfunc.utils.convert_rp_pi_counts_to_wp"""
-        return Corrfunc.utils.convert_rp_pi_counts_to_wp(Nd, Nd, Nr, Nr, DD,\
-                DR, DR, RR, nrpbins=self.nrpbins, pimax=self.pimax)
+        return Corrfunc.utils.convert_rp_pi_counts_to_wp(Nd, Nd, Nr, Nr, DD,
+                                                         DR, DR, RR,
+                                                         nrpbins=self.nrpbins,
+                                                         pimax=self.pimax)
 
     def _bins(self, X, Y):
         """Bins the galaxies along the z-axis into bins of size
@@ -120,7 +124,6 @@ class Jackknife(object):
             counts[i]['npairs'] = int(round(counts[i]['npairs'], 0))
         return counts
 
-
     def _randoms(self, nrand):
         """Generates random uniformly distributed over the simulation box"""
         return [np.random.uniform(0, self.boxsize, nrand) for __ in range(3)]
@@ -145,13 +148,13 @@ class Jackknife(object):
         # Calculate the average number of RR pairs both along line of sight
         # and orthogonal to it
         rrsub_average = rrsubs[0].copy()
-        for i in range(rrsub_average.size): # Start counting from the second subvol, first included already.
+        # Start counting from the second subvol, first included already.
+        for i in range(rrsub_average.size):
             for j in range(1, len(rrsubs)):
                 rrsub_average[i]['npairs'] += (rrsubs[j])[i]['npairs']
             # Get the average
-            (rrsub_average[i])['npairs'] = \
-                    int(round(rrsub_average[i])['npairs'] / len(rrsubs), 0)
-
+            rrsub_average[i]['npairs'] = int(round(
+                rrsub_average[i]['npairs'] / len(rrsubs), 0))
         return rrsub_average, npoints_average
 
     def _centers(self, x, y, bins):
@@ -163,7 +166,6 @@ class Jackknife(object):
             centy = 0.5 * (y[mask].max() + y[mask].min())
             centers.append((centx, centy))
         return np.array(centers)
-
 
     def _nearby_mask(self, i, centers, x, y, bins):
         """Returns masks that flag all points within some distance of the
@@ -194,8 +196,8 @@ class Jackknife(object):
         naverage = 10
         for i in np.random.choice(range(nsubs), size=naverage, replace=False):
             around_mask, binmask = self._nearby_mask(i, centers, x, y, bins)
-            rrsubs.append(self._count_pairs(False, x[binmask], y[binmask],\
-                          z[binmask], x[around_mask], y[around_mask],\
+            rrsubs.append(self._count_pairs(False, x[binmask], y[binmask],
+                          z[binmask], x[around_mask], y[around_mask],
                           z[around_mask]))
 
         rrcross = rrsubs[0].copy()
@@ -204,10 +206,9 @@ class Jackknife(object):
             for j in range(1, len(rrsubs)):
                 rrcross[i]['npairs'] += (rrsubs[j])[i]['npairs']
             # After summing each subvol take the average and ensure int
-            (rrcross[i])['npairs'] =\
-                    int(round((rrcross[i])['npairs'] / len(rrsubs), 0))
+            rrcross[i]['npairs'] = int(
+                    round((rrcross[i])['npairs'] / len(rrsubs), 0))
         return rrcross
-
 
     def jackknife(self, samples, nmult):
         """Jackknifes the simulated galaxies within the simulation box.
@@ -239,8 +240,8 @@ class Jackknife(object):
         RR = self._count_pairs(True, randx, randy, randz)
 
         # Estimate the average RR inside the subvolume
-        RRsub_average, nrandsub_average =\
-                self._average_subvol_rr_pairs(randbins, randx, randy, randz)
+        RRsub_average, nrandsub_average = self._average_subvol_rr_pairs(
+                randbins, randx, randy, randz)
         # Average number of RR pairs after removing one subvolume
         RRjack = self._subtract_pairs(RR.copy(), RRsub_average)
         # Estimate average cross border RR
@@ -250,7 +251,7 @@ class Jackknife(object):
         # From the RR counts after removing one subvolume remove the average
         # number of pairs that has one pair outside, weighted by 0.5
         RRjack = self._subtract_pairs(RRjack.copy(), RRcross_average,
-                                     weight=0.5)
+                                      weight=0.5)
         # Now we begin the jackknifing process. However, here we already
         # precomputed the RR contribution and we know how many DD pairs are
         # in the whole box. So it is enough to count the DD and DR pairs
