@@ -6,6 +6,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 
 import os
 import shutil
+from joblib import (Parallel, delayed, externals)
 
 from .model import Boundary
 from ..utils import (load_pickle, dump_pickle)
@@ -17,11 +18,10 @@ class AdaptiveGridSearch(object):
                  outfolder=None, nprocs=None):
         self._widths = None
         self._X = None
-        self.Xstored = None
         self._Z = None
         self._blobs = None
 
-        self._adapt_dur = adapt_dur
+        self.adapt_dur = adapt_dur
         self._npoints = npoints
         self.func = func
         self.pars = pars
@@ -30,7 +30,6 @@ class AdaptiveGridSearch(object):
         self.outfolder = outfolder
 
         self._initialised = False
-        self._counter = 0
 
     @property
     def X(self):
@@ -51,8 +50,6 @@ class AdaptiveGridSearch(object):
 
     @widths.setter
     def widths(self, widths):
-        print(widths)
-        print(self.pars)
         try:
             self._widths = {p: Boundary(p, widths[p]) for p in self.pars}
         except KeyError:
@@ -124,8 +121,7 @@ class AdaptiveGridSearch(object):
         return all((np.dot(eq[:-1], point) + eq[-1] <= tolerance)
                    for eq in hull.equations)
 
-    def _points_in_hull(self, npoints):
-        hull = self.convex_hull()
+    def _points_in_hull(self, npoints, hull):
         newp = list()
         while True:
             p = self._uniform_points().reshape(-1,)
@@ -137,27 +133,19 @@ class AdaptiveGridSearch(object):
         X = np.array(newp)
         return X
 
-    def store_points(self, X):
-        self.Xstored = X
-
     def run(self, nnew=None):
         if not self._initialised:
             # First phase: grid
-            nside = int((self._adapt_dur/2)**(1/len(self.pars)))
-            X = self._grid_points(nside)
             print('Initial grid search')
-            self.evaluate_function(X)
-            self._save()
-            # First phase: random
-            X = self._uniform_points(int(self._adapt_dur/2))
-            print('Initial random search')
+            nside = int(self.adapt_dur**(1/len(self.pars)))
+            X = self._grid_points(nside)
             self.evaluate_function(X)
             self._save()
             # Second phase: define the hull
-            self._hull = self.convex_hull()
+            print('Random search inside the hull')
+            hull = self.convex_hull()
             # Sample points within the hull and evaluate
-            X = self._points_in_hull(self._npoints)
-            print('Initial random search inside the hull')
+            X = self._points_in_hull(self._npoints, hull)
             self.evaluate_function(X)
             self._save()
 
@@ -167,28 +155,18 @@ class AdaptiveGridSearch(object):
             if not nnew >= 1:
                 raise ValueError('nnew must be at least 1')
             # recompute the convex hull
-            self._hull = self.convex_hull()
-            X = self._points_in_hull(nnew)
+            hull = self.convex_hull()
+            X = self._points_in_hull(nnew, hull)
             print('Extra random search within the hull')
             self.evaluate_function(X)
             self._save()
-
-    def run_stored(self, npoints=100):
-        if self._counter == 0:
-            nsampled = 0
-        else:
-            nsampled = self._counter
-        X = self.Xstored[nsampled:nsampled+100]
-        self.evaluate_function(X)
-        self._counter += npoints
-        self._save()
 
     def _save(self):
         """Save current progress"""
         if self.outfolder is None:
             return
         data = {'X': self.X, 'Z': self.Z, 'blobs': self.blobs}
-        fname = '{}/{}_full.p'.format(self.outfolder, self.name)
+        fname = '{}/{}.p'.format(self.outfolder, self.name)
         if os.path.isfile(fname):
             archive_fname = '{}/{}_backup.p'.format(self.outfolder, self.name)
             shutil.move(fname, archive_fname)
@@ -223,12 +201,40 @@ class GaussianProcess(object):
                                for i in range(len(self.pars))])
         return np.vstack([p.reshape(-1,) for p in points]).T
 
-    def dist_2D(self, nside=50):
+    def dist_2D(self, nside=50, nthreads=1):
         if not len(self.pars) == 2:
             raise NotImplementedError('Only 2D posteriors supported')
         gp = self._gp()
         X = self._grid_points(nside)
-        return X, gp.predict(X).reshape(-1,)
+        if nthreads == 1:
+            Z = gp.predict(X).reshape(-1,)
+        else:
+            njobs = X.shape[0] // nthreads
+            n_per_thread = [(i * njobs, (i + 1) * njobs)
+                            for i in range(nthreads - 1)]
+            n_per_thread.append((n_per_thread[-1][-1], X.shape[0]))
+            cuts = [X[cut[0]:cut[1]] for cut in n_per_thread]
+            with Parallel(n_jobs=nthreads, verbose=10, backend='loky') as par:
+                Z = par(delayed(gp.predict)(cut) for cut in cuts)
+            externals.loky.get_reusable_executor().shutdown(wait=True)
+            Z = np.vstack([Zi for Zi in Z])
+        return X, Z.reshape(-1,)
+
+    @staticmethod
+    def posterior_2D_cutoff(Z, posterior_ratio):
+        Z = Z.copy()
+        expZ = np.exp(Z)
+        sortedZ = np.sort(expZ)
+        cut = np.log(sortedZ[np.abs(np.cumsum(sortedZ/np.sum(expZ))
+                                    - posterior_ratio).argmin()])
+        Z[Z < cut] = - np.infty
+        return Z
+
+    @staticmethod
+    def pcolormesh_shape(X, Z, nside):
+        X, Y = [X[:, i].reshape(nside, nside) for i in range(2)]
+        Z = Z.reshape(nside, nside)
+        return X, Y, Z
 
     def marginal_2D(self, par, nside=50):
         """Sets a Gaussian process over the sampled points in 3D, evaluates

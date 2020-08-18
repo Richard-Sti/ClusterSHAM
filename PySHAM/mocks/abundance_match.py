@@ -4,7 +4,6 @@ import numpy as np
 from AbundanceMatching import (AbundanceFunction, add_scatter, rematch,
                                calc_number_densities, LF_SCATTER_MULT)
 from joblib import (Parallel, delayed, externals)
-import gc
 import random
 
 
@@ -20,10 +19,10 @@ class AbundanceMatch(object):
         self.proxy_func = proxy_func
 
         if self._AM_type == 'MF':
-            self._xrange = (7.5, 14.0)
+            self._xrange = (8.0, 12.5)
             self._faint = True
         else:
-            self._xrange = (-27.0, -15.0)
+            self._xrange = (-27.0, -17)
             self._faint = False
 
     @property
@@ -37,10 +36,6 @@ class AbundanceMatch(object):
         scatter = theta['scatter']
         plist = self.proxy_func(self.halos, **theta)
         nd_halos = calc_number_densities(plist, self.boxsize)
-        # the following tasks are memory intensive so force garbage
-        # collection early at some points
-        del plist
-        gc.collect()
 
         if self._AM_type == 'LF':
             scatter *= LF_SCATTER_MULT
@@ -67,9 +62,6 @@ class AbundanceMatch(object):
         externals.loky.get_reusable_executor().shutdown(wait=True)
         samples = [(self.halos['x'][mask], self.halos['y'][mask],
                    self.halos['z'][mask]) for mask in masks]
-
-        del (nd_halos, af, cat, cat_dec)
-        gc.collect()
         return samples
 
     def _scatter_mask(self, seed, cat, cat_dec, scatter, flipped):

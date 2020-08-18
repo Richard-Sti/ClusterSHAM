@@ -58,13 +58,13 @@ class Model(Jackknife):
     def survey_wp(self):
         """Precomputed survey projected two point correlation function.
         Returns the mean wp and the jackknife covariance matrix estimate."""
-        return self._survey_wp['wp'], self._survey_wp['covmat']
+        return self._survey_wp['wp'], self._survey_wp['cov']
 
     @survey_wp.setter
     def survey_wp(self, corrfunc):
         if not isinstance(corrfunc, dict):
             raise ValueError('must be a dictionary')
-        if not all([p in list(corrfunc.keys()) for p in ['wp', 'covmat']]):
+        if not all([p in list(corrfunc.keys()) for p in ['wp', 'cov']]):
             raise ValueError('make sure survey CF dict has the right keys')
         self._survey_wp = corrfunc
 

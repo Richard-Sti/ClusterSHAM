@@ -1,5 +1,4 @@
 import numpy as np
-from gc import collect
 from joblib import (dump, load)
 from astropy import constants as const, units as u
 from astropy.cosmology import FlatLambdaCDM
@@ -18,7 +17,9 @@ def load_pickle(fname):
 
 
 def prep_halos(halos_path, tags):
+    print('loading')
     halos = np.load(halos_path)
+    print('loaded')
 
     names = ['x', 'y', 'z'] + [tag for tag in tags]
     formats = ['float64'] * len(names)
@@ -29,14 +30,10 @@ def prep_halos(halos_path, tags):
             out[name] = halos[name]
         else:
             cosmology = FlatLambdaCDM(H0=68.8, Om0=0.295)
+            print('doing vvir')
             vvir = vvir_lehmann(halos, cosmology)
+            print('done vvir')
             out[name] = vvir
-    del (halos, names, formats, N)
-    try:
-        del (cosmology, vvir)
-    except NameError:
-        pass
-    collect()
     return out
 
 
