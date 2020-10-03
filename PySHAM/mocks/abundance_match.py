@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-"""A class that does abundance matching"""
+"""A class that does abundance matching."""
 
 import random
 
@@ -28,6 +28,7 @@ MAX_INT = 2**32 - 1
 
 
 class AbundanceMatch(BaseAbundanceMatch):
+
     r"""A wrapper around Yao-Yuan Mao's Subhalo Abundance Matching (SHAM)
     Python package [1]. Performs abundance matching on a list of halos.
 
@@ -58,9 +59,9 @@ class AbundanceMatch(BaseAbundanceMatch):
     .. [1] https://bitbucket.org/yymao/abundancematching/
 
     """
+
     def __init__(self, nd_gal, scope, halos, boxsize, halo_proxy, Nmocks=1,
                  nthreads=1):
-        # parse inputs
         self.nd_gal = nd_gal
         self.scope = scope
         self.halos = halos
@@ -72,11 +73,11 @@ class AbundanceMatch(BaseAbundanceMatch):
         self._set_xrange(scope)
 
     def _set_xrange(self, scope):
-        """MAKE THIS DYNAMICAL"""
+        """Sets the xrange over which abundance matching is done."""
+        dx = 2.5
         if self.is_luminosity:
-            self._xrange = (-27.0, -16.5)
-        else:
-            self._xrange = (8.0, 13.5)
+            dx *= LF_SCATTER_MULT
+        self._xrange = (scope[0] - dx, scope[1] + dx)
 
     def _seeds(self):
         """Returns an array of seeds, ensuring all are unique."""
@@ -88,7 +89,7 @@ class AbundanceMatch(BaseAbundanceMatch):
                 return seeds
 
     def match(self, theta):
-        """Matches galaxies to halos"""
+        """Matches galaxies to halos."""
         scatter = theta.pop('scatter')
         plist = self.halo_proxy.proxy(self.halos, **theta)
         nd_halos = calc_number_densities(plist, self.boxsize)
@@ -118,7 +119,7 @@ class AbundanceMatch(BaseAbundanceMatch):
                 for mask in masks]
 
     def _scatter_mask(self, seed, cat, cat_dec, scatter, flipped):
-        """Rematches galaxies and picks only ones in scope"""
+        """Rematches galaxies and picks only ones in scope."""
         np.random.seed(seed)
         out = rematch(add_scatter(cat_dec, scatter), cat, flipped)
         # Eliminate NaNs and galaxies with mass/brightness below/above the cut

@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-"""Base classes that handle inputs for the mocks submodule"""
+"""Base classes that handle inputs for the mocks submodule."""
 
 from abc import ABCMeta, abstractmethod
 from six import add_metaclass
@@ -22,8 +22,15 @@ import numpy as np
 
 @add_metaclass(ABCMeta)
 class BaseModel(object):
-    r"""
-    l
+
+    r"""Abstract class for handling inputs shared by most classes.
+
+    Attributes
+    ----------
+    boxsize
+    rpbins
+    pimax
+    nthreads
     """
 
     _boxsize = None
@@ -33,14 +40,14 @@ class BaseModel(object):
 
     @property
     def boxsize(self):
-        """Length of a simulation box side"""
+        """Length of a simulation box side."""
         return self._boxsize
 
     @boxsize.setter
     def boxsize(self, boxsize):
-        """Sets the simulation box side"""
+        """Sets the simulation box side."""
         if not isinstance(boxsize, (float, int)):
-            raise ValueError("Must provide a float or int for ``boxsize``")
+            raise ValueError("Must provide a float or int for ``boxsize``.")
         self._boxsize = float(boxsize)
 
     @property
@@ -50,6 +57,7 @@ class BaseModel(object):
 
     @nthreads.setter
     def nthreads(self, nthreads):
+        """Sets the number of threads."""
         if nthreads < 1:
             raise ValueError("``nthreads`` must be larger than 1.")
         self._nthreads = int(nthreads)
@@ -57,14 +65,22 @@ class BaseModel(object):
 
 @add_metaclass(ABCMeta)
 class BaseAbundanceMatch(BaseModel):
-    r"""
-    l
+    r"""Abstract base class that handles inputs specific to abundanc matching.
 
+    Parameters
+    ----------
+    scope
+    nd_gal
+    is_luminosity
+    Nmocks
+    halo_proxy
+    halos
+    xrange
     """
+
     _scope = None
     _nd_gal = None
     _is_luminosity = None
-    _AM_type = None
     _Nmocks = None
     _faint_end_first = None
     _halo_proxy = None
@@ -98,7 +114,7 @@ class BaseAbundanceMatch(BaseModel):
 
     @property
     def is_luminosity(self):
-        """Returns True if luminosity abundance matching"""
+        """Returns True if luminosity abundance matching."""
         return self._is_luminosity
 
     @property
@@ -108,7 +124,7 @@ class BaseAbundanceMatch(BaseModel):
 
     @nd_gal.setter
     def nd_gal(self, nd):
-        """Sets either the luminosity or mass function"""
+        """Sets either the luminosity or mass function."""
         if not isinstance(nd, np.ndarray):
             raise ValueError("``nd`` must be of numpy.ndarray type.")
         if np.any(nd[:, 2] < 0):
@@ -117,12 +133,12 @@ class BaseAbundanceMatch(BaseModel):
 
     @property
     def Nmocks(self):
-        """Returns the number of mocks to produce at a given posterior point.
-        """
+        """Returns the number of mocks to produce at a given point."""
         return self._Nmocks
 
     @Nmocks.setter
     def Nmocks(self, Nmocks):
+        """Sets the number of mocks."""
         if Nmocks < 1:
             raise ValueError("``Nmocks`` must be larger than 1.")
         self._Nmocks = int(Nmocks)
@@ -145,7 +161,7 @@ class BaseAbundanceMatch(BaseModel):
 
     @halos.setter
     def halos(self, halos):
-        """Sets the halos"""
+        """Sets the halos and check whether all pars present."""
         if not isinstance(halos, np.ndarray):
             raise ValueError("``halos`` must be of numpy.ndarray type.")
         pos = ['x', 'y', 'y']
@@ -166,8 +182,12 @@ class BaseAbundanceMatch(BaseModel):
 
 @add_metaclass(ABCMeta)
 class BaseProxy(BaseModel):
-    r"""
-    l
+    r""" Abstract class for handling the abundance matching proxies. All
+    proxies must inherit from this.
+
+    Parameters
+    ----------
+    halos_parameters.
 
     """
     _halos_parameters = None

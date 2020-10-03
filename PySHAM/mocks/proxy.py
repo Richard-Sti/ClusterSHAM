@@ -23,6 +23,7 @@ from .base import BaseProxy
 
 
 class VirialMassProxy(BaseProxy):
+
     r"""Virial mass proxy for abundance matching defined as:
 
         .. math::
@@ -31,12 +32,13 @@ class VirialMassProxy(BaseProxy):
     where :math:`M_0` and :math:`M_{\mathrm{peak}}` are the present and peak
     virial masses, respectively.
     """
+
     name = 'mvir_proxy'
 
     def __init__(self):
         self.halos_parameters = ['mvir', 'mpeak']
 
-    def proxy(halos, theta):
+    def proxy(self, halos, theta):
         alpha = theta.pop('alpha')
         if theta:
             raise ValueError("Unrecognised parameters: {}"
@@ -45,6 +47,7 @@ class VirialMassProxy(BaseProxy):
 
 
 class VirialVelocityProxy(BaseProxy):
+
     r"""Virial velocity proxy for abundance matching defined as
 
         .. math::
@@ -59,7 +62,7 @@ class VirialVelocityProxy(BaseProxy):
     def __init(self):
         self.halos_parameters = ['vvir', 'Vmax@Mpeak']
 
-    def proxy(halos, theta):
+    def proxy(self, halos, theta):
         alpha = theta.pop('alpha')
         if theta:
             raise ValueError("Unrecognised parameters: {}"
