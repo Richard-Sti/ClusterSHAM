@@ -67,7 +67,8 @@ class Base(object):
     @property
     def pimax(self):
         """Returns pimax, the maximum integration distance along the line of
-        sight."""
+        sight.
+        """
         return self._pimax
 
     @pimax.setter
@@ -117,7 +118,8 @@ class BaseAbundanceMatch(Base):
 
     @property
     def scope(self):
-        """Magnitude or log mass range over which to perform abundance
+        """
+        Magnitude or log mass range over which to perform abundance
         matching.
         """
         return self._scope

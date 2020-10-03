@@ -28,8 +28,8 @@ MAX_INT = 2**32 - 1
 
 
 class AbundanceMatch(BaseAbundanceMatch):
-
-    r"""A wrapper around Yao-Yuan Mao's Subhalo Abundance Matching (SHAM)
+    r"""
+    A wrapper around Yao-Yuan Mao's Subhalo Abundance Matching (SHAM)
     Python package [1]. Performs abundance matching on a list of halos.
 
     Parameters
