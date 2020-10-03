@@ -73,6 +73,6 @@ def mvir_proxy(halos, **kwargs):
 
 
 def in_hull(point, hull, tolerance=1e-12):
-    """Returns True if poin in the hull"""
+    """Returns True if poin in the hull."""
     return all((np.dot(eq[:-1], point) + eq[-1] <= tolerance)
                for eq in hull.equations)
