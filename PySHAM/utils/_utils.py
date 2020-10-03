@@ -70,3 +70,9 @@ def vvir_proxy(halos, **kwargs):
 def mvir_proxy(halos, **kwargs):
     alpha = kwargs['alpha']
     return halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
+
+
+def in_hull(point, hull, tolerance=1e-12):
+    """Returns True if poin in the hull"""
+    return all((np.dot(eq[:-1], point) + eq[-1] <= tolerance)
+               for eq in hull.equations)

@@ -19,10 +19,10 @@ class AbundanceMatch(object):
         self.proxy_func = proxy_func
 
         if self._AM_type == 'MF':
-            self._xrange = (8.0, 12.5)
+            self._xrange = (8.0, 13.5)
             self._faint = True
         else:
-            self._xrange = (-27.0, -17)
+            self._xrange = (-27.0, -16.5)
             self._faint = False
 
     @property
@@ -54,12 +54,18 @@ class AbundanceMatch(object):
             if not np.any(counts > 1):
                 break
 
-        with Parallel(n_jobs=self.Njobs, verbose=10, backend='loky') as par:
-            masks = par(delayed(self._scatter_mask)(seed, cat, cat_dec,
-                                                    scatter, af._x_flipped)
-                        for seed in seeds)
-        # clean up the parallel pools
-        externals.loky.get_reusable_executor().shutdown(wait=True)
+        if self.Njobs > 1:
+            with Parallel(self.Njobs, verbose=10, backend='loky') as par:
+                masks = par(delayed(self._scatter_mask)(seed, cat, cat_dec,
+                                                        scatter,
+                                                        af._x_flipped)
+                            for seed in seeds)
+            # clean up the parallel pools
+            externals.loky.get_reusable_executor().shutdown(wait=True)
+        else:
+            masks = [self._scatter_mask(seed, cat, cat_dec, scatter,
+                                        af._x_flipped) for seed in seeds]
+
         samples = [(self.halos['x'][mask], self.halos['y'][mask],
                    self.halos['z'][mask]) for mask in masks]
         return samples
