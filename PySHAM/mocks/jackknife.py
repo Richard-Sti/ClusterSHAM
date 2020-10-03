@@ -195,6 +195,7 @@ class Jackknife(Base):
                     round((rrcross[i])['npairs'] / len(rrsubs), 0))
         return rrcross
 
+    @staticmethod
     def _Nmult(self, Nsamples):
         """Returns how many more uniform points to generate relative to
         number of simulated galaxies."""
