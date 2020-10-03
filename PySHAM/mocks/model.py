@@ -6,8 +6,6 @@ from warnings import filterwarnings
 
 import numpy as np
 
-# from scipy.stats import multivariate_normal
-
 import Corrfunc
 
 from .jackknife import Jackknife
@@ -58,13 +56,13 @@ class Model(Jackknife):
     def survey_wp(self):
         """Precomputed survey projected two point correlation function.
         Returns the mean wp and the jackknife covariance matrix estimate."""
-        return self._survey_wp['wp'], self._survey_wp['covmat']
+        return self._survey_wp['wp'], self._survey_wp['cov']
 
     @survey_wp.setter
     def survey_wp(self, corrfunc):
         if not isinstance(corrfunc, dict):
             raise ValueError('must be a dictionary')
-        if not all([p in list(corrfunc.keys()) for p in ['wp', 'covmat']]):
+        if not all(p in list(corrfunc.keys()) for p in ['wp', 'cov']):
             raise ValueError('make sure survey CF dict has the right keys')
         self._survey_wp = corrfunc
 
@@ -121,11 +119,11 @@ class Model(Jackknife):
 
     def logprior(self, theta):
         """For now uniform prior over the parameter space"""
-        if all([self.bounds[p].inside(theta[p]) for p in self.pars]):
+        if all(self.bounds[p].inside(theta[p]) for p in self.pars):
             return 0.0
         return -np.infty
 
-    def logposterior(self, theta):
+    def __call__(self, theta):
         """Log posterior"""
         logp = self.logprior(theta)
         if not np.isfinite(logp):
