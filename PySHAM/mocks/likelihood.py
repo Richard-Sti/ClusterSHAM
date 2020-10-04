@@ -24,10 +24,6 @@ import Corrfunc
 from .jackknife import Jackknife
 from .base import BaseClusteringLikelihood
 
-# TAKE CARE OF THIS ERROR
-from warnings import filterwarnings
-filterwarnings("ignore", category=RuntimeWarning)
-
 
 class ClusteringLikelihood(BaseClusteringLikelihood):
 
@@ -38,9 +34,12 @@ class ClusteringLikelihood(BaseClusteringLikelihood):
     ----------
     parameters : (a list of) str
         Parameter names for the likelihood.
-    wp_survey : dict
-        A dictionary with the matching survey correlation function. The
-        keys must include ``wp`` and ``cov``.
+    wp_survey : numpy.ndarray
+        Survey correlation function. Must be calculated over bins specified
+        in ``rpbins``.
+    cov_survey : numpy.ndarray
+        Survey correlation function covariance matrix. Must be calculated over
+        bins specified in ``rpbins``.
     AM_model : PySHAM.mocks.AbundaceMatching
         The abundance matching model object as specified in PySHAM.
     subside : int
@@ -56,20 +55,20 @@ class ClusteringLikelihood(BaseClusteringLikelihood):
         Number of threads.
     """
 
-    def __init__(self, parameters, wp_survey, AM_model, subside, rpbins, pimax,
-                 nthreads=1):
+    def __init__(self, parameters, wp_survey, cov_survey, AM_model, subside,
+                 rpbins, pimax, nthreads=1):
         # parse inputs
         self.parameters = parameters
         self.wp_survey = wp_survey
+        self.cov_survey = cov_survey
         self.AM_model = AM_model
         self.rpbins = rpbins
         self.pimax = pimax
         self.nthreads = nthreads
         # define the jackknife model
-        self.jackknife_model = Jackknife(subside=subside,
+        self.jackknife_model = Jackknife(subside=subside, rpbins=rpbins,
                                          boxsize=AM_model.boxsize,
-                                         rpbins=rpbins, pimax=pimax,
-                                         nthreads=nthreads)
+                                         pimax=pimax, nthreads=nthreads)
 
     def stochastic_variation(self, samples):
         """Calculates the mean and covariance matrix for a list of catalogs.
@@ -77,10 +76,11 @@ class ClusteringLikelihood(BaseClusteringLikelihood):
         """
         wps = [None] * len(samples)
         for i, sample in enumerate(samples):
-            wps[i] = Corrfunc.theory.wp(boxsize=self.boxsize, pimax=self.pimax,
-                                        nthreads=self.nthreads,
-                                        binfile=self.rpbins, X=sample[0],
-                                        Y=sample[1], Z=sample[2])['wp']
+            X, Y, Z = sample
+            out = Corrfunc.theory.wp(boxsize=self.AM_model.boxsize,
+                                     pimax=self.pimax, nthreads=self.nthreads,
+                                     binfile=self.rpbins, X=X, Y=Y, Z=Z)['wp']
+            wps[i] = out
         wps = np.array(wps)
         # Bias=True means normalisation by 1/N instead of 1/(N-1)
         return np.mean(wps, axis=0), np.cov(wps, rowvar=False, bias=True)

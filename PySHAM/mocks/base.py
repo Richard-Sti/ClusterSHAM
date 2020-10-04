@@ -60,7 +60,7 @@ class Base(object):
         """Sets the rp bins."""
         if not isinstance(rpbins, np.ndarray):
             raise ValueError("``rpbins`` must be a numpy.ndarray type.")
-        if not rpbins.ndim != 1:
+        if rpbins.ndim != 1:
             raise ValueError("``rpbins`` must be a 1-dimensional array.")
         self._rpbins = rpbins
 
@@ -115,6 +115,7 @@ class BaseAbundanceMatch(Base):
     _halo_proxy = None
     _halos = None
     _xrange = None
+    _max_scatter = None
 
     @property
     def scope(self):
@@ -169,7 +170,7 @@ class BaseAbundanceMatch(Base):
     @Nmocks.setter
     def Nmocks(self, Nmocks):
         """Sets the number of mocks."""
-        if Nmocks < 1:
+        if Nmocks < 2:
             raise ValueError("``Nmocks`` must be larger than 1.")
         self._Nmocks = int(Nmocks)
 
@@ -194,20 +195,32 @@ class BaseAbundanceMatch(Base):
         """Sets the halos and check whether all pars present."""
         if not isinstance(halos, np.ndarray):
             raise ValueError("``halos`` must be of numpy.ndarray type.")
-        pos = ['x', 'y', 'y']
+        pos = ['x', 'y', 'z']
         if not all(p in halos.dtype.names for p in pos):
             raise ValueError("Halo positions must be specified as "
                              "`x`, `y`, `z`.")
-        if not all(p in halos.dtype.names for p in self.halo_proxy.parameters):
+        halo_pars = self.halo_proxy.halos_parameters
+        if not all(p in halos.dtype.names for p in halo_pars):
             raise ValueError("``halos`` mising some halo proxy parameters.")
-
         # store only the relevant parameters
-        pars = pos + list(self.halo_proxy.parameters)
-        formats = ['float64'] * len(pars)
+        pars = pos + halo_pars
+        types = ['float64'] * len(pars)
         N = halos['x'].size
-        self._halos = np.zeros(N, dtype={'names': pars, 'formats': formats})
+        self._halos = np.zeros(N, dtype={'names': pars, 'formats': types})
         for p in pars:
             self._halos[p] = halos[p]
+
+    @property
+    def max_scatter(self):
+        """Maximum prior value of scatter."""
+        return self._max_scatter
+
+    @max_scatter.setter
+    def max_scatter(self, max_scatter):
+        """Sets the maximum scatter. Checks for positive values."""
+        if not max_scatter >= 0:
+            raise ValueError("``max_scatter`` must be positive.")
+        self._max_scatter = float(max_scatter)
 
 
 @add_metaclass(ABCMeta)
@@ -313,7 +326,7 @@ class BaseProxy(object):
         """Returns the halo parameters needed for the proxy calculation."""
         return self._halos_parameters
 
-    @halos_parameters.setters
+    @halos_parameters.setter
     def halos_parameters(self, pars):
         """Sets the halo parameters"""
         if isinstance(pars, str):

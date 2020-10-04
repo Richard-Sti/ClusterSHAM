@@ -28,8 +28,7 @@ MAX_INT = 2**32 - 1
 
 
 class AbundanceMatch(BaseAbundanceMatch):
-    r"""
-    A wrapper around Yao-Yuan Mao's Subhalo Abundance Matching (SHAM)
+    r"""A wrapper around Yao-Yuan Mao's Subhalo Abundance Matching (SHAM)
     Python package [1]. Performs abundance matching on a list of halos.
 
     Parameters
@@ -53,6 +52,8 @@ class AbundanceMatch(BaseAbundanceMatch):
         Number of mocks to produce at a given posterior point.
     nthreads : int
         Number of threads.
+    max_scatter : float
+        Maximum prior value of scatter.
 
     References
     ----------
@@ -60,24 +61,25 @@ class AbundanceMatch(BaseAbundanceMatch):
 
     """
 
-    def __init__(self, nd_gal, scope, halos, boxsize, halo_proxy, Nmocks=1,
-                 nthreads=1):
+    def __init__(self, nd_gal, scope, halos, boxsize, halo_proxy, max_scatter,
+                 Nmocks=1, nthreads=1):
         self.nd_gal = nd_gal
         self.scope = scope
+        self.halo_proxy = halo_proxy
         self.halos = halos
         self.boxsize = boxsize
-        self.halo_proxy = halo_proxy
         self.Nmocks = Nmocks
         self.nthreads = nthreads
+        self._max_scatter = max_scatter
 
-        self._set_xrange(scope)
+        self._set_xrange()
 
-    def _set_xrange(self, scope):
+    def _set_xrange(self):
         """Sets the xrange over which abundance matching is done."""
-        dx = 2.5
+        dx = 2 * self.max_scatter
         if self.is_luminosity:
             dx *= LF_SCATTER_MULT
-        self._xrange = (scope[0] - dx, scope[1] + dx)
+        self._xrange = (self.scope[0] - dx, self.scope[1] + dx)
 
     def _seeds(self):
         """Returns an array of seeds, ensuring all are unique."""
@@ -91,7 +93,7 @@ class AbundanceMatch(BaseAbundanceMatch):
     def match(self, theta):
         """Matches galaxies to halos."""
         scatter = theta.pop('scatter')
-        plist = self.halo_proxy.proxy(self.halos, **theta)
+        plist = self.halo_proxy.proxy(self.halos, theta)
         nd_halos = calc_number_densities(plist, self.boxsize)
         # LF scatter has another scalar multiplying it (2.5)
         if self.is_luminosity:
@@ -115,7 +117,7 @@ class AbundanceMatch(BaseAbundanceMatch):
         else:
             masks = [self._scatter_mask(i, cat, cat_dec, scatter,
                                         af._x_flipped) for i in seeds]
-        return [[self.halos[p][mask] for p in ['x', 'y', 'y']]
+        return [[self.halos[p][mask] for p in ['x', 'y', 'z']]
                 for mask in masks]
 
     def _scatter_mask(self, seed, cat, cat_dec, scatter, flipped):

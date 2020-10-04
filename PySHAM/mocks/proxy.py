@@ -23,7 +23,6 @@ from .base import BaseProxy
 
 
 class VirialMassProxy(BaseProxy):
-
     r"""Virial mass proxy for abundance matching defined as:
 
         .. math::
@@ -46,8 +45,37 @@ class VirialMassProxy(BaseProxy):
         return halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
 
 
-class VirialVelocityProxy(BaseProxy):
+class ZmpeakVirialMassProxy(BaseProxy):
+    r"""An extension of the virial mass proxy for abundance matching defined
+    as:
 
+        .. math::
+            m_{\alpha} = M_0 * \left M_{\mathrm{peak}} / M_0\right]^{\alpha},
+
+    where :math:`M_0` and :math:`M_{\mathrm{peak}}` are the present and peak
+    virial masses, respectively. This proxy applies a 'zmpeak' cutoff, by
+    only performing abundance matching on halos with 'zmpeak' earlier than
+    'zcutoff'.
+    """
+
+    name = 'mvir_proxy'
+
+    def __init__(self):
+        self.halos_parameters = ['mvir', 'mpeak', 'zmpeak']
+
+    def proxy(self, halos, theta):
+        alpha = theta.pop('alpha')
+        zcutoff = theta.pop('zcutoff')
+        if theta:
+            raise ValueError("Unrecognised parameters: {}"
+                             .format(theta.keys()))
+
+        mask = halos['zmpeak'] < zcutoff
+        plist = halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
+        return plist[mask]
+
+
+class VirialVelocityProxy(BaseProxy):
     r"""Virial velocity proxy for abundance matching defined as
 
         .. math::

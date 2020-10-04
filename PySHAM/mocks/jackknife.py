@@ -196,7 +196,7 @@ class Jackknife(Base):
         return rrcross
 
     @staticmethod
-    def _Nmult(self, Nsamples):
+    def _Nmult(Nsamples):
         """Returns how many more uniform points to generate relative to
         number of simulated galaxies."""
         if Nsamples > 1e5:
