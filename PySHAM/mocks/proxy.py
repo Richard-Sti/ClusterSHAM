@@ -58,7 +58,7 @@ class ZmpeakVirialMassProxy(BaseProxy):
     'zcutoff'.
     """
 
-    name = 'mvir_proxy'
+    name = 'zmpeak_mvir_proxy'
 
     def __init__(self):
         self.halos_parameters = ['mvir', 'mpeak', 'zmpeak']

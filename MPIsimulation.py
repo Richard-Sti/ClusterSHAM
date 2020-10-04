@@ -1,14 +1,28 @@
-import os
+# Copyright (C) 2020  Richard Stiskalek
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+"""MPI submission script."""
 
+import os
 import numpy as np
 
 import argparse
-import toml
-
-from PySHAM.mocks import Model
-from PySHAM import utils
-
 from mpi4py import MPI
+
+from PySHAM import (mocks, utils)
+
+
 # Create shared array halos
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()          # Labels the individual processes/cores
@@ -18,22 +32,30 @@ size = comm.Get_size()          # Total number of processes/cores
 #       Parse the input arguments          #
 # ---------------------------------------- #
 parser = argparse.ArgumentParser()
+parser.add_argument("--config", type=str, help="Path to the config file.")
 parser.add_argument("--name", help="Catalog name", type=str)
-parser.add_argument("--scope", nargs='+', type=float)
-parser.add_argument("--proxy", type=str)
-parser.add_argument("--alpha", type=float, nargs='+', help='Range of alpha',
-                    default=None)
-parser.add_argument("--scatter", type=float, nargs='+',
-                    help='Range of scatter', default=None)
-parser.add_argument("--cached", type=bool, default=False)
-parser.add_argument("--file_index", type=int, default=0)
+
 
 args = parser.parse_args()
-config = toml.load('config.toml')
+config_path = toml.load(args.config)
+
+# parse the arguments
+args_AM = utils.abundance_matching_parser(config_path)
+args_likelihood = utils.clustering_likelihood_parser(config_path)
+
+AM_model = mocks.AbundanceMatch(**args_AM)
+args_likelihood.update({'AM_model': AM_model})
+# create the model
+model = mocks.ClusteringLikelihood(**args_likelihood)
 
 if rank == 0:
-    print('Running {} with {} from {} to {}'.format(
-        args.name, args.proxy, args.scope[0], args.scope[1]))
+    print('Running {} with {} from {} to {}'
+          .format(args.name, AM_model.halo_proxy.name, *AM_model.scope))
+
+
+
+
+
 
 #  -------------------------------------------------------------------------- #
 #                   Get variables from config                                 #

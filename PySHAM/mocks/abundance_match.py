@@ -62,7 +62,7 @@ class AbundanceMatch(BaseAbundanceMatch):
     """
 
     def __init__(self, nd_gal, scope, halos, boxsize, halo_proxy, max_scatter,
-                 Nmocks=1, nthreads=1):
+                 Nmocks=10, nthreads=1):
         self.nd_gal = nd_gal
         self.scope = scope
         self.halo_proxy = halo_proxy

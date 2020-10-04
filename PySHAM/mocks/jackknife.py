@@ -198,7 +198,10 @@ class Jackknife(Base):
     @staticmethod
     def _Nmult(Nsamples):
         """Returns how many more uniform points to generate relative to
-        number of simulated galaxies."""
+        number of simulated galaxies.
+
+        This function is somewhat hardcoded right now.. fix this later.
+        """
         if Nsamples > 1e5:
             return 10
         elif Nsamples > 25000:
