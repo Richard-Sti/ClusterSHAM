@@ -1,2 +1,3 @@
 # PySHAM
-Python-based Subhalo Abundance Matching
+
+Inference tools for exploring the galaxy-halo connection

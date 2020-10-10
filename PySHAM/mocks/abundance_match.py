@@ -93,7 +93,7 @@ class AbundanceMatch(BaseAbundanceMatch):
     def match(self, theta):
         """Matches galaxies to halos."""
         scatter = theta.pop('scatter')
-        plist = self.halo_proxy.proxy(self.halos, theta)
+        plist, proxy_mask = self.halo_proxy.proxy(self.halos, theta)
         nd_halos = calc_number_densities(plist, self.boxsize)
         # LF scatter has another scalar multiplying it (2.5)
         if self.is_luminosity:
@@ -117,8 +117,11 @@ class AbundanceMatch(BaseAbundanceMatch):
         else:
             masks = [self._scatter_mask(i, cat, cat_dec, scatter,
                                         af._x_flipped) for i in seeds]
-        return [[self.halos[p][mask] for p in ['x', 'y', 'z']]
-                for mask in masks]
+        samples = [None] * self.Nmocks
+        halos_selection = self.halos[proxy_mask]
+        for i, mask in enumerate(masks):
+            samples[i] = [halos_selection[p][mask] for p in ('x', 'y', 'z')]
+        return samples
 
     def _scatter_mask(self, seed, cat, cat_dec, scatter, flipped):
         """Rematches galaxies and picks only ones in scope."""

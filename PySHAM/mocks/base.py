@@ -309,16 +309,14 @@ class BaseClusteringLikelihood(Base):
 
 @add_metaclass(ABCMeta)
 class BaseProxy(object):
-
     r""" Abstract class for handling the abundance matching proxies. All
     proxies must inherit from this.
 
     Parameters
     ----------
-    halos_parameters
-
+    halos_parameters: (list of) str
+        Names of halo parameters (properties) used to calculate the proxy.
     """
-
     _halos_parameters = None
 
     @property
@@ -328,7 +326,7 @@ class BaseProxy(object):
 
     @halos_parameters.setter
     def halos_parameters(self, pars):
-        """Sets the halo parameters"""
+        """Sets the halo parameters."""
         if isinstance(pars, str):
             pars = [pars]
         if not isinstance(pars, (list, tuple)):

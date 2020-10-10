@@ -42,7 +42,9 @@ class VirialMassProxy(BaseProxy):
         if theta:
             raise ValueError("Unrecognised parameters: {}"
                              .format(theta.keys()))
-        return halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
+        proxy = halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
+        proxy_mask = np.ones_like(proxy, dtype=bool)
+        return proxy, proxy_mask
 
 
 class ZmpeakVirialMassProxy(BaseProxy):
@@ -70,9 +72,9 @@ class ZmpeakVirialMassProxy(BaseProxy):
             raise ValueError("Unrecognised parameters: {}"
                              .format(theta.keys()))
 
-        mask = halos['zmpeak'] < zcutoff
-        plist = halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
-        return plist[mask]
+        proxy_mask = halos['zmpeak'] < zcutoff
+        proxy = halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
+        return proxy[proxy_mask], proxy_mask
 
 
 class VirialVelocityProxy(BaseProxy):
@@ -87,7 +89,7 @@ class VirialVelocityProxy(BaseProxy):
 
     name = 'vvir_proxy'
 
-    def __init(self):
+    def __init__(self):
         self.halos_parameters = ['vvir', 'Vmax@Mpeak']
 
     def proxy(self, halos, theta):
@@ -95,9 +97,11 @@ class VirialVelocityProxy(BaseProxy):
         if theta:
             raise ValueError("Unrecognised parameters: {}"
                              .format(theta.keys()))
-        return halos['vvir'] * (halos['Vmax@Mpeak'] / halos['vvir'])**alpha
+        proxy = halos['vvir'] * (halos['Vmax@Mpeak'] / halos['vvir'])**alpha
+        proxy_mask = np.ones_like(proxy, dtype=bool)
+        return proxy, proxy_mask
 
-    def vvir(halos, cosmology):
+    def vvir(self, halos, cosmology):
         """Calculates the virial velocity at peak halo mass as defined in [1].
         Note that following the probable definition in this work, the critical
         density here is taken at present time as well.

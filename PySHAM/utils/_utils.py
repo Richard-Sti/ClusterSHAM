@@ -37,24 +37,3 @@ def in_hull(point, hull, tolerance=1e-12):
     """Returns True if poin in the hull."""
     eqs = hull.equations
     return all((np.dot(eq[:-1], point) + eq[-1] <= tolerance) for eq in eqs)
-
-
-#def prep_halos(halos_path, tags):
-#    print('loading')
-#    halos = np.load(halos_path)
-#    print('loaded')
-#
-#    names = ['x', 'y', 'z'] + [tag for tag in tags]
-#    formats = ['float64'] * len(names)
-#    N = halos['x'].size
-#    out = np.zeros(N, dtype={'names': names, 'formats': formats})
-#    for name in names:
-#        if not name == 'vvir':
-#            out[name] = halos[name]
-#        else:
-#            cosmology = FlatLambdaCDM(H0=68.8, Om0=0.295)
-#            print('doing vvir')
-#            vvir = vvir_lehmann(halos, cosmology)
-#            print('done vvir')
-#            out[name] = vvir
-#    return out

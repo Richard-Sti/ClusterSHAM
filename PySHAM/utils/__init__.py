@@ -14,6 +14,4 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """Make some things top level."""
 from ._utils import (load_pickle, dump_pickle, in_hull)
-from .plots_am import AMplots
-
-from .parser import abundance_matching_parser, clustering_likelihood_parser
+from .plots import Plots
