@@ -1,93 +1,78 @@
-#!/usr/bin/env python3
-# coding: utf-8
-"""
-Module for *fast* estimate of the jackknife covariance matrix on a simulation
-box
-"""
+# Copyright (C) 2020  Richard Stiskalek
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+"""A module for *fast* estimate of the jackknife covariance matrix on a
+simulation box."""
+
 import numpy as np
 import Corrfunc
 
+from .base import Base
 
-class Jackknife(object):
-    """Class for *rapid* calculation of the covariance matrix on a sim. box
-    that is based on the Corrfunc package.
-    --------------------------
-    Parameters:
-        boxsize: float
-            side length of the simulation box
-        rpbisn: array
-            bins separation projected orthogonal to the line of sight
-        pimax: float
-            max integration separation along the line of sight
-        subside: float
-            side length of the jackknife subvolume
+
+class Jackknife(Base):
+    r""" Class for fast estimates of the jackknife covariance matrix on a
+    simulation box. Based on the Corrfunc package.
+
+    Note
+    ----------
+    Describe in words what the code does.
+
+
+    Parameters
+    ----------
+    subside : int
+        Lenght of a subvolume being removed at each turned. This subvolume
+        is assumed to be ``subside`` x ``subside`` x ``boxsize.
+    boxsize : int
+        Length of a side of the simulation box in which halos are located.
+    rpbins : numpy.ndarray
+        Array of bins orthogonal to the line of sight in which the
+        project correlation function is calculated.
+    pimax : float
+        Maximum distance along the line of sight to integrate over when
+        calculating the projected wp.
+    nthreads : int, optional
+        Number of threads.
     """
-    def __init__(self, boxsize, rpbins, pimax, subside, Njobs):
-        self._boxsize = None
-        self._rpbins = None
-        self._pimax = None
-        self._subside = None
 
+    def __init__(self, subside, boxsize, rpbins, pimax, nthreads=1):
         self.boxsize = boxsize
         self.rpbins = rpbins
         self.pimax = pimax
         self.subside = subside
-        self.Njobs = Njobs
-
-        self.nrpbins = len(self.rpbins) - 1
-
-    @property
-    def boxsize(self):
-        """Sim. box side length, assumed a cube"""
-        return self._boxsize
-
-    @boxsize.setter
-    def boxsize(self, boxsize):
-        if not isinstance(boxsize, (float, int)):
-            raise ValueError('provide a float or int')
-        self._boxsize = float(boxsize)
-
-    @property
-    def pimax(self):
-        """Max integration separation along the line of sight"""
-        return self._pimax
-
-    @pimax.setter
-    def pimax(self, pimax):
-        if not isinstance(pimax, (float, int)):
-            raise ValueError('provide a float or int')
-        self._pimax = float(pimax)
+        self.nthreads = nthreads
+        # number of bins
+        self._nrpbins = len(self.rpbins) - 1
 
     @property
     def subside(self):
-        """Side of the subvolume being removed at each turn, assumed to be
-        subside x subside x boxsize
-        """
+        """Length of the subvolume being removed at each turned. Assumed
+        to be ``subside`` x ``subside`` x ``boxsize."""
         return self._subside
 
     @subside.setter
     def subside(self, subside):
         if not isinstance(subside, (float, int)):
-            raise ValueError('provide a float or int')
-        elif not self.boxsize % subside == 0:
-            raise ValueError('subside must divide boxsize')
-        self._subside = float(subside)
-
-    @property
-    def rpbins(self):
-        """Bins of separation orthogonal to the line of sight. Line of sight
-        is assumed to be the z-axis generally"""
-        return self._rpbins
-
-    @rpbins.setter
-    def rpbins(self, rpbins):
-        if not isinstance(rpbins, np.ndarray):
-            raise ValueError('provide a numpy array')
-        self._rpbins = rpbins
+            raise ValueError('``subside`` must be of type int.')
+        if not self.boxsize % subside == 0:
+            raise ValueError('``subside`` must divide ``boxsize``.')
+        self._subside = int(subside)
 
     def _count_pairs(self, autocorr, x1, y1, z1, x2=None, y2=None, z2=None):
         """A wrapper around Corrfunc.theory.DDrppi"""
-        return Corrfunc.theory.DDrppi(autocorr, nthreads=self.Njobs,
+        return Corrfunc.theory.DDrppi(autocorr, nthreads=self.nthreads,
                                       pimax=self.pimax, binfile=self.rpbins,
                                       X1=x1, Y1=y1, Z1=z1, X2=x2, Y2=y2,
                                       Z2=z2, periodic=False)
@@ -96,7 +81,7 @@ class Jackknife(object):
         """A wrapper around Corrfunc.utils.convert_rp_pi_counts_to_wp"""
         return Corrfunc.utils.convert_rp_pi_counts_to_wp(Nd, Nd, Nr, Nr, DD,
                                                          DR, DR, RR,
-                                                         nrpbins=self.nrpbins,
+                                                         nrpbins=self._nrpbins,
                                                          pimax=self.pimax)
 
     def _bins(self, X, Y):
@@ -210,19 +195,34 @@ class Jackknife(object):
                     round((rrcross[i])['npairs'] / len(rrsubs), 0))
         return rrcross
 
-    def jackknife(self, samples, nmult):
+    @staticmethod
+    def _Nmult(Nsamples):
+        """Returns how many more uniform points to generate relative to
+        number of simulated galaxies.
+
+        This function is somewhat hardcoded right now.. fix this later.
+        """
+        if Nsamples > 1e5:
+            return 10
+        elif Nsamples > 25000:
+            return 30
+        else:
+            return 50
+
+    def jackknife(self, samples):
         """Jackknifes the simulated galaxies within the simulation box.
 
-        -------------------------
-        Parameters:
-            samples: tuple
+        Parameters
+        ----------
+            samples : tuple
                 (x, y, z) coordinates
-            nmult: int
-                how many times randoms to generate than samples
-        ________________________
-        Returns:
-            covmat: np.ndarray; jackknife covariance matrix
+
+        Returns
+        ----------
+            cov : numpy.ndarray
+                Jackknife covariance matrix
         """
+        nmult = self._Nmult(samples[0].size)
         # Recast samples into np.floa64 and unpack the sample
         x, y, z = [s.astype('float64') for s in samples]
         ndata = x.size
