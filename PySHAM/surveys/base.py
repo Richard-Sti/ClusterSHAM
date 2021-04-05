@@ -105,11 +105,10 @@ class BaseSurvey(object):
         """
         pass
 
-    def scopes(self, handle, faint_end_first, bright_end_cutoff=None,
-               fraction_bins=None):
+    def scopes(self, handle, faint_end_first, fraction_bins=None):
         """Finds scopes corresponding to ``fraction_bins``. By default
 
-            ``fraction_bins`` = [0.0, 0.015, 0.15, 0.6, 0.9],
+            ``fraction_bins`` = [0.0, 0.015, 0.15, 0.4, 0.9],
 
         where objects are ranked from brightest to faintest.
 
@@ -121,20 +120,16 @@ class BaseSurvey(object):
             faint_end_first: bool
                 Whether faint end is first. ``True`` for mass and ``False``
                 for magnitudes.
-            bright_end_cutoff: float, optional
-                An optional cutoff for the brightest bin.
             fraction_bins: list
                 Described above.
         """
 
         if fraction_bins is None:
-            fraction_bins = [0.0, 0.015, 0.15, 0.6, 0.9]
+            fraction_bins = [0.0, 0.015, 0.15, 0.4, 0.9]
         feature = np.sort(self.data[handle])
         if faint_end_first:
             feature = np.flip(feature, axis=0)
         cuts = [feature[int(x * feature.size)] for x in fraction_bins]
-        if bright_end_cutoff is not None:
-            cuts[0] = bright_end_cutoff
         # make the scope tuples
         return [(cuts[i], cuts[i+1]) for i in range(len(cuts) - 1)]
 
@@ -162,6 +157,10 @@ class BaseSurvey(object):
             return 'logMS'
         elif nd_type == 'LF':
             return 'Mr'
+        elif nd_type == 'BMF':
+            return 'logMB'
+        elif nd_type == 'HIMF':
+            return 'logMH'
         else:
             raise ValueError("Unrecognised ``nd_type`` {}".format(nd_type))
 
@@ -173,14 +172,24 @@ class BaseSurvey(object):
             return False
         elif handle == 'logMS':
             return True
+        elif handle == 'logMB':
+            return True
+        elif handle == 'logMH':
+            return True
         else:
             raise ValueError("Unknown ``handle`` {}.".format(handle))
 
-    def bright_end_cutoff(self, handle):
-        """Returns the brightest/heavist object for ``handle``."""
-        if not self.faint_end_first(handle):
-            return np.min(self.data[handle])
-        return np.max(self.data[handle])
+    def cutoffs(self, handle):
+        """Returns the faintest/least massive or brightest/heavist object
+        for ``handle`` + some tolerance for extrapolating."""
+        data = self.data[handle]
+        xmin = np.min(data)
+        xmax = np.max(data)
+        if handle == 'Mr':
+            xmin += 2.5
+        else:
+            xmin -= 1.0
+        return xmin, xmax
 
 
 @add_metaclass(ABCMeta)

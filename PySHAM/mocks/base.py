@@ -105,6 +105,7 @@ class BaseAbundanceMatch(Base):
     halo_proxy
     halos
     xrange
+    survey_cutoffs
     """
 
     _scope = None
@@ -116,6 +117,7 @@ class BaseAbundanceMatch(Base):
     _halos = None
     _xrange = None
     _max_scatter = None
+    _survey_cutoffs = None
 
     @property
     def scope(self):
@@ -221,6 +223,25 @@ class BaseAbundanceMatch(Base):
         if not max_scatter >= 0:
             raise ValueError("``max_scatter`` must be positive.")
         self._max_scatter = float(max_scatter)
+
+    @property
+    def survey_cutoffs(self):
+        """Returns the faintest/least massive or brightest/heavist object
+        for ``handle``.
+        """
+        return self._survey_cutoffs
+
+    @survey_cutoffs.setter
+    def survey_cutoffs(self, cutoffs):
+        """Sets the ``survey_cutoffs``."""
+        if cutoffs is None:
+            self._survey_cutoffs = None
+        if not isinstance(cutoffs, (list, tuple)):
+            raise ValueError("``cutoffs`` must be a tuple.")
+        cutoffs = tuple(cutoffs)
+        if len(cutoffs) != 2:
+            raise ValueError("``cutoffs`` must have length 2.")
+        self._survey_cutoffs = cutoffs
 
 
 @add_metaclass(ABCMeta)

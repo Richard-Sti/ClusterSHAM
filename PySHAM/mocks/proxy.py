@@ -43,38 +43,30 @@ class VirialMassProxy(BaseProxy):
             raise ValueError("Unrecognised parameters: {}"
                              .format(theta.keys()))
         proxy = halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
-        proxy_mask = np.ones_like(proxy, dtype=bool)
-        return proxy, proxy_mask
+        mask = np.ones_like(proxy, dtype=bool)
+        return proxy, mask
 
 
-class ZmpeakVirialMassProxy(BaseProxy):
-    r"""An extension of the virial mass proxy for abundance matching defined
-    as:
-
-        .. math::
-            m_{\alpha} = M_0 * \left M_{\mathrm{peak}} / M_0\right]^{\alpha},
-
-    where :math:`M_0` and :math:`M_{\mathrm{peak}}` are the present and peak
-    virial masses, respectively. This proxy applies a 'zmpeak' cutoff, by
-    only performing abundance matching on halos with 'zmpeak' earlier than
-    'zcutoff'.
+class PeakRedshiftProxy(BaseProxy):
+    r""" A pre-selection proxy that eliminates all halos whose peak mass
+    redshift is above ``zcutoff``. The remaining halos are ranked by
+    the present virial mass.
     """
 
-    name = 'zmpeak_mvir_proxy'
+    name = 'zmpeak_proxy'
 
     def __init__(self):
-        self.halos_parameters = ['mvir', 'mpeak', 'zmpeak']
+        self.halos_parameters = ['mvir', 'zmpeak']
 
     def proxy(self, halos, theta):
-        alpha = theta.pop('alpha')
         zcutoff = theta.pop('zcutoff')
         if theta:
             raise ValueError("Unrecognised parameters: {}"
                              .format(theta.keys()))
+        mask = halos['zmpeak'] < zcutoff
+        proxy = halos['mvir'][mask]
 
-        proxy_mask = halos['zmpeak'] < zcutoff
-        proxy = halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
-        return proxy[proxy_mask], proxy_mask
+        return proxy, mask
 
 
 class VirialVelocityProxy(BaseProxy):
@@ -98,8 +90,8 @@ class VirialVelocityProxy(BaseProxy):
             raise ValueError("Unrecognised parameters: {}"
                              .format(theta.keys()))
         proxy = halos['vvir'] * (halos['Vmax@Mpeak'] / halos['vvir'])**alpha
-        proxy_mask = np.ones_like(proxy, dtype=bool)
-        return proxy, proxy_mask
+        mask = np.ones_like(proxy, dtype=bool)
+        return proxy, mask
 
     def vvir(self, halos, cosmology):
         """Calculates the virial velocity at peak halo mass as defined in [1].

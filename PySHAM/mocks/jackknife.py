@@ -90,7 +90,7 @@ class Jackknife(Base):
         """
         edges = np.arange(0, self.boxsize + self.subside, self.subside)
         nboxes = edges.size - 1
-        return (np.digitize(Y, edges) - 1)*nboxes + np.digitize(X, edges) - 1
+        return (np.digitize(Y, edges) - 1) * nboxes + np.digitize(X, edges) - 1
 
     @staticmethod
     def _subtract_pairs(counts, counts_sub, weight=1.0):
@@ -119,12 +119,13 @@ class Jackknife(Base):
         enough to calculate it once and then use this value when calculating
         each jackknife
         """
-        nsubs = np.unique(bins).size
+        nsubs = int((self.boxsize / self.subside)**2)
+#        nsubs = np.unique(bins).size
         rrsubs, npoints = list(), list()
         naverage = 10
         # Calculate for 10 random subvolumes the number of points in it and
         # count the pairs
-        for i in np.random.choice(range(nsubs), size=naverage, replace=False):
+        for i in np.random.choice(nsubs, size=naverage, replace=False):
             mask = np.where(bins == i)
             npoints.append(mask[0].size)
             rrsubs.append(self._count_pairs(True, x[mask], y[mask], z[mask]))
@@ -179,7 +180,8 @@ class Jackknife(Base):
         nsubs = np.unique(bins).size
         rrsubs = list()
         naverage = 10
-        for i in np.random.choice(range(nsubs), size=naverage, replace=False):
+#        print('Nsubs is ', nsubs)
+        for i in np.random.choice(nsubs, size=naverage, replace=False):
             around_mask, binmask = self._nearby_mask(i, centers, x, y, bins)
             rrsubs.append(self._count_pairs(False, x[binmask], y[binmask],
                           z[binmask], x[around_mask], y[around_mask],
@@ -203,11 +205,11 @@ class Jackknife(Base):
         This function is somewhat hardcoded right now.. fix this later.
         """
         if Nsamples > 1e5:
-            return 10
+            return 15
         elif Nsamples > 25000:
-            return 30
+            return 40
         else:
-            return 50
+            return 75
 
     def jackknife(self, samples):
         """Jackknifes the simulated galaxies within the simulation box.
@@ -224,14 +226,17 @@ class Jackknife(Base):
         """
         nmult = self._Nmult(samples[0].size)
         # Recast samples into np.floa64 and unpack the sample
-        x, y, z = [s.astype('float64') for s in samples]
+        x, y, z = samples
+#        print('x, y size ', x.size, y.size)
         ndata = x.size
         nrand = int(ndata * nmult)
         # Generate randoms
         randx, randy, randz = self._randoms(nrand)
+#        print('Randx, randy size ', randx.size, randy.size)
         # Assign points into bins along x-y
         bins = self._bins(x, y)
         randbins = self._bins(randx, randy)
+#        print("Number unique: ", np.unique(randbins).size)
         # Number of subvolumes
         nsubs = np.unique(bins).size
         # Calculate pairs over the whole box

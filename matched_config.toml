@@ -1,0 +1,39 @@
+# NYU/NSA submission file
+[main]
+# minimum rp separation
+rpmin = 0.1
+# maximum rp separation
+rpmax = 25
+# number of rp bins
+nrpbins = 12
+# maximum integration distance along line of sight
+pimax = 60
+# number of mocks at a given posterior point
+Nmocks = 50
+# size of the simulation box
+boxsize = 400
+# subvolume length for jackknifing
+subside = 25
+# number of jackknife centres
+Njack = 300
+# how many times more randoms than data
+Nmult = 50
+# survey fractional bins
+fraction_bins = [0.0, 0.125, 0.325, 0.6, 0.9]
+
+[sampling]
+parameters = ['zcutoff', 'scatter']
+proxy = 'zmpeak_proxy'
+max_scatter = 2.0
+
+survey = '/mnt/zfsusers/rstiskalek/pysham/results/{}/ObsCF_{}_bin{}.p'
+nd_gal = '/mnt/zfsusers/rstiskalek/pysham/results/{}/{}.npy'
+halos = '/mnt/zfsusers/rstiskalek/pysham/data/halos_{}.npy'
+
+[sampling.bounds]
+zcutoff = [0.01, 2.0]
+scatter = [0.005, 2.0]
+
+[sampling.nside]
+zcutoff = 20
+scatter = 40

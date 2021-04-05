@@ -78,7 +78,7 @@ class BasePlots(object):
     def x(self):
         """Returns the centers of rpbins."""
         bins = self.rpbins
-        return [0.5 * (bins[i+1] + bins[i]) for i in range(len(bins))]
+        return [0.5 * (bins[i+1] + bins[i]) for i in range(len(bins) - 1)]
 
     @property
     def sampled_points(self):
@@ -111,11 +111,23 @@ class BasePlots(object):
         formats = ['float64'] * len(pars)
         N = len(self.sampled_points)
         out = np.zeros(N, dtype={'names': pars, 'formats': formats})
-        for p in pars:
-            if p in stats_pars:
-                out[p] = [point[p] for point in self.sampled_points]
+        for par in pars:
+            if par == 'loglikelihood':
+                out[par] = [point[par] for point in self.sampled_points]
+            elif par == 'logprior':
+                # Calculate the logprior for each point
+                lp = [0.0] * N
+                bnd = self.boundaries
+                dx = {p: abs(bnd[p][0] - bnd[p][1]) for p in self.parameters}
+                x0 = {p: bnd[p][0] for p in self.parameters}
+                for i, point in enumerate(self.sampled_points):
+                    x = point['theta']
+                    for p in self.parameters:
+                        lp[i] += uniform.logpdf(x=x[p], loc=x0[p], scale=dx[p])
+                out[par] = lp
             else:
-                out[p] = [point['theta'][p] for point in self.sampled_points]
+                out[par] = [point['theta'][par]
+                            for point in self.sampled_points]
         return out
 
     @property
@@ -187,7 +199,7 @@ class Plots(BasePlots):
     wp_survey: numpy.ndarray
         Correlation function of the survey corresponding to the scope of
         abundance matching.
-    wp_cov: numpy.ndarray
+    cov_survey: numpy.ndarray
         Covariance matrix for ``wp_survey``.
     rp_bins: numpy.ndarrya
         Bins used to calculate the projected correlation function.
@@ -196,69 +208,95 @@ class Plots(BasePlots):
         increasing tuple of length 2.
     """
 
-    def __init__(self, parameters, blobs, wp_survey, wp_cov, rpbins,
+    def __init__(self, parameters, blobs, wp_survey, cov_survey, rpbins,
                  prior_boundaries):
         self.parameters = parameters
         self.sampled_points = blobs
         self.wp_survey = wp_survey
-        self.wp_cov = wp_cov
+        self.cov_survey = cov_survey
         self.rpbins = rpbins
         self.boundaries = prior_boundaries
 
-    def _padding(self, nside):
+    def _uniform_grid(self, nside):
         """
-        L
+        Returns uniformly spaced points within the prior boundaries.
+        The total number of points is ``nside`` times ``nsides``.
         """
         axes = [None] * len(self.parameters)
+        dx = [None] * len(self.parameters)
         for i, p in enumerate(self.parameters):
             a, b = self.boundaries[p]
-            axes[i] = np.linspace(a, b, nside)
-
+            x = np.linspace(a, b, nside)
+            dx[i] = x[1] - x[0]
+            axes[i] = x
         Xgrid = np.vstack([axis.reshape(-1,) for axis in np.meshgrid(*axes)]).T
-        # create a hull with sampled points
-        Xsampled = np.vstack([self.stats[par] for par in self.parameters]).T
-        hull = ConvexHull(Xsampled)
-        # which of the grid points are inside the hull
-        Ngrid = Xgrid.shape[0]
-        mask = np.array([in_hull(Xgrid[i, :], hull) for i in range(Ngrid)])
-        # pad the sampled points
-        Xinterpolator = np.vstack([Xsampled, Xgrid[np.logical_not(mask)]])
-        return Xinterpolator, Xgrid
+        return Xgrid, dx
 
-    def contour_2D(self, nside, smooth_std=None):
+    def contour_2D(self, nside, smooth_std=None, return_prior=False):
         """
-        L
-
+        Returns the necessary arguments for a 2D contour plot: X, Y, logpost,
+        and the contour levels.
         """
-        Xinterp, Xgrid = self._padding(nside)
-        # make padding loglikelihood just the sampled minimum
-        Zinterp = np.full(Xinterp.shape[0], self.stats['loglikelihood'].min())
-        Zinterp[:len(self.sampled_points)] = self.stats['loglikelihood']
-        # this linear interpolator will evaluate the regular grid points
-        f = LinearNDInterpolator(Xinterp, Zinterp, rescale=True)
-        Zgrid = f(Xgrid)
+        X = np.vstack([self.stats[par] for par in self.parameters]).T
+        logpost = self.stats['loglikelihood']
+        if return_prior:
+            logpost += self.stats['logprior']
+        # this linear interpolator will be used to evaluate the grid points
+        f = LinearNDInterpolator(X, logpost, rescale=True)
+        # evaluate the interpolator on a grid
+        Xgrid, __ = self._uniform_grid(nside)
+        logpost = f(Xgrid)
         # possibly add smoothing to make nice contours
         if smooth_std is not None:
-            Zgrid = gaussian_filter(Zgrid, smooth_std)
-        # change nans to -np.infty
-        contours = self._sigma_regions(Zgrid)
+            logpost = gaussian_filter(logpost, smooth_std)
+        contours = self._sigma_regions(logpost)
         # reshape for matplotlib.pyplot.contour
         Xgrid = Xgrid.reshape(nside, nside, 2)
-        Zgrid = Zgrid.reshape(nside, nside)
-        args = [Xgrid[:, :, 0], Xgrid[:, :, 1], Zgrid, contours]
-        return args
+        logpost = logpost.reshape(nside, nside)
+        return Xgrid[:, :, 0], Xgrid[:, :, 1], logpost, contours
+
+    def MCMC_samples_from_array(self, N, X, Y, logpost, bounds=None):
+        """Returns ``N`` posterior samples from a 2D log posterior defined by
+        ``logpost`` on a meshgrid of ``X`` and ``Y``.
+        """
+        # Appropriately normalise the log posterior
+        post = np.exp(logpost)
+        post /= np.max(post)
+        post = post.reshape(-1, 1)
+        features = np.array([X.reshape(-1, ), Y.reshape(-1, )]).T
+        survival = LinearNDInterpolator(features, post, rescale=True)
+        # Get the point generator
+        if bounds is None:
+            bnds = self.boundaries
+        else:
+            bnds = bounds
+        loc = [bnds[p][0] for p in self.parameters]
+        scale = [abs(bnds[p][1] - bnds[p][0]) for p in self.parameters]
+        generator = uniform(loc=loc, scale=scale)
+
+        MCMC_points = [None] * N
+        i = 0
+        while True:
+            point = generator.rvs()
+            if survival(point) > np.random.rand():
+                MCMC_points[i] = point.tolist()
+                i += 1
+            if i == N:
+                return MCMC_points
 
     @staticmethod
     def _sigma_regions(logZ):
         """
-        L
+        Calculates the contours for ``logZ`` for the first three sigma levels
+        on a 2D distribution.
         """
         logZ = np.ravel(logZ)
         prob = np.exp(logZ) / np.sum(np.exp(logZ))
+        ncontours = 4
 
         # sigma volume
-        sigmas = [np.exp(-0.5 * x**2) for x in range(1, 3 + 1)][::-1]
-        contours = [None] * 3
+        sigmas = [np.exp(-0.5 * x**2) for x in range(1, ncontours + 1)][::-1]
+        contours = [None] * ncontours
 
         IDS = np.argsort(prob)
         for i, sigma in enumerate(sigmas):
@@ -267,36 +305,73 @@ class Plots(BasePlots):
             contours[i] = logZ[IDS[index]]
         return contours
 
-    def uniform_prior(self, X):
+    def _log_evidence_2D(self, nside):
         """
-        L.
+        Calculate the log evidence for an array defined by X, Y, and logZ,
+        where logZ is the log posterior.
         """
-        lp = np.zeros(X.shape[0])
-        for i, p in enumerate(self.parameters):
-            a, b = self.boundaries[p]
-            lp += uniform.logpdf(x=X[:, i], loc=a, scale=(a + b))
-        return lp
+        X = np.vstack([self.stats[par] for par in self.parameters]).T
+        logpost = self.stats['loglikelihood'] + self.stats['logprior']
+        # this linear interpolator will be used to evaluate the grid points
+        f = LinearNDInterpolator(X, logpost, rescale=True)
+        # evaluate the interpolator on a grid
+        Xgrid, dX = self._uniform_grid(nside)
+        logposterior = f(Xgrid)
+        evidence = np.sum(np.exp(logposterior))
+        return np.log(evidence) + sum(np.log(dx) for dx in dX)
 
-    def log_evidence_2D(self, nside):
+    @staticmethod
+    def log_evidence_from_array(X, Y, logposterior):
         """
-        L.
+        Returns the log evidence for ``logposterior`` specified on a uniform
+        grid of ``X`` and ``Y``.
         """
-        # padding around the sampled points
-        Xinterp, Xgrid = self._padding(nside)
-        Zinterp = np.zeros(Xinterp.shape[0])
-        # for sampled points add loglikelihood
-        Zinterp[:len(self.sampled_points)] += self.stats['loglikelihood']
-#        Zinterp[len(self.sampled_points):] = -np.infty
-        # for all points add logprior (uniform)
-        for i, p in enumerate(self.parameters):
-            a, b = self.boundaries[p]
-            Zinterp += uniform.logpdf(Xinterp[:, i], loc=a, scale=a + b)
-        # this linear interpolator will evaluate the regular grid points
-        f = LinearNDInterpolator(Xinterp, Zinterp, rescale=True)
-        Zgrid = f(Xgrid)
-        Zgrid[np.isnan(Zgrid)] = -np.infty
-        return Xgrid, Zgrid, np.log(np.sum(np.exp(Zgrid)))
-#
+        dx = X[0, 1] - X[0, 0]
+        dy = Y[1, 0] - Y[0, 0]
+        evidence = np.sum(np.exp(logposterior))
+        return np.log(evidence) + np.log(dx) + np.log(dy)
+
+    def best_fit(self, nside=100):
+        """Returns the best fit posterior point."""
+        logposts = self.stats['loglikelihood'] + self.stats['logprior']
+        i = np.argmax(logposts)
+        point = self.sampled_points[i]
+
+        AM_yerr = np.sqrt(np.diagonal(point['cov_stoch'] + point['cov_jack']))
+        surv_yerr = np.sqrt(np.diagonal(self.cov_survey))
+
+        AM_kwargs = {'x': self.x, 'y': point['wp'], 'yerr': AM_yerr}
+        surv_kwargs = {'x': self.x, 'y': self.wp_survey, 'yerr': surv_yerr}
+        fit_kwargs = {p: point['theta'][p] for p in self.parameters}
+        fit_kwargs.update({'logposterior': logposts[i],
+                           'logevidence': self._log_evidence_2D(nside)})
+        return AM_kwargs, surv_kwargs, fit_kwargs
+
+    def hull_randoms(self, npoints, vertices):
+        """
+        Generates ``npoints`` uniformly spaced points withing a convex hull
+        specified by ``vertices.``
+        """
+        if isinstance(vertices, list):
+            vertices = np.array(vertices)
+        if not isinstance(vertices, np.ndarray):
+            raise ValueError("``vertices`` must be a numpy.ndarray or a list")
+        # create the hull
+        hull = ConvexHull(vertices)
+        points = list()
+        # rejection sampling to get uniformly spaced points
+        bnds = self.boundaries
+        while len(points) < npoints:
+            theta = [uniform.rvs(bnds[p][0], bnds[p][0] + bnds[p][1])
+                     for p in self.parameters]
+            if in_hull(theta, hull):
+                points.append(theta)
+        # convert into a numpy array
+        points = np.array(points)
+        return points
+
+
+
 #    def marginal_2D(self, par, nside=50):
 #        """Sets a Gaussian process over the sampled points in 3D, evaluates
 #        this on a fixed grid and subsequently marginalises over `par`"""

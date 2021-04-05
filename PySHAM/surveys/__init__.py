@@ -16,5 +16,6 @@
 
 from .base import BaseSurvey
 from .sdss_survey import (NSA, NYU)
+from .matched import Matched
 from .number_density import NumberDensity
 from .projected_wp import ProjectedCorrelationFunction

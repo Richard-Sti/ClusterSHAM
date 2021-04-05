@@ -48,6 +48,9 @@ class AbundanceMatch(BaseAbundanceMatch):
         A halo proxy object.
     boxsize : int
         Length of a side of the simulation box in which halos are located.
+    survey_scope : tuple
+        Magnitude or log mass range of the survey.
+        Must be a len-2 tuple.
     Nmocks : int
         Number of mocks to produce at a given posterior point.
     nthreads : int
@@ -62,12 +65,13 @@ class AbundanceMatch(BaseAbundanceMatch):
     """
 
     def __init__(self, nd_gal, scope, halos, boxsize, halo_proxy, max_scatter,
-                 Nmocks=10, nthreads=1):
+                 survey_cutoffs=None, Nmocks=10, nthreads=1):
         self.nd_gal = nd_gal
         self.scope = scope
         self.halo_proxy = halo_proxy
         self.halos = halos
         self.boxsize = boxsize
+        self.survey_cutoffs = survey_cutoffs
         self.Nmocks = Nmocks
         self.nthreads = nthreads
         self._max_scatter = max_scatter
@@ -79,7 +83,14 @@ class AbundanceMatch(BaseAbundanceMatch):
         dx = 2 * self.max_scatter
         if self.is_luminosity:
             dx *= LF_SCATTER_MULT
-        self._xrange = (self.scope[0] - dx, self.scope[1] + dx)
+
+        scope = [self.scope[0] - dx, self.scope[1] + dx]
+        if self.survey_cutoffs is not None:
+            if scope[0] < self.survey_cutoffs[0]:
+                scope[0] = self.survey_cutoffs[0]
+            if scope[1] > self.survey_cutoffs[1]:
+                scope[1] = self.survey_cutoffs[1]
+        self._xrange = tuple(scope)
 
     def _seeds(self):
         """Returns an array of seeds, ensuring all are unique."""
@@ -90,7 +101,7 @@ class AbundanceMatch(BaseAbundanceMatch):
             if len(seeds) == self.Nmocks:
                 return seeds
 
-    def match(self, theta):
+    def match(self, theta, return_all=False):
         """Matches galaxies to halos."""
         scatter = theta.pop('scatter')
         plist, proxy_mask = self.halo_proxy.proxy(self.halos, theta)
@@ -111,22 +122,40 @@ class AbundanceMatch(BaseAbundanceMatch):
         if self.nthreads > 1:
             with Parallel(self.nthreads, verbose=10, backend='loky') as par:
                 masks = par(delayed(self._scatter_mask)(
-                    i, cat, cat_dec, scatter, af._x_flipped) for i in seeds)
+                    i, cat, cat_dec, scatter, af._x_flipped, return_all)
+                    for i in seeds)
             # clean up the parallel pools
             externals.loky.get_reusable_executor().shutdown(wait=True)
         else:
             masks = [self._scatter_mask(i, cat, cat_dec, scatter,
-                                        af._x_flipped) for i in seeds]
+                                        af._x_flipped, return_all)
+                     for i in seeds]
         samples = [None] * self.Nmocks
-        halos_selection = self.halos[proxy_mask]
+
         for i, mask in enumerate(masks):
-            samples[i] = [halos_selection[p][mask] for p in ('x', 'y', 'z')]
+            if not return_all:
+                samples[i] = [self.halos[p][proxy_mask][mask]
+                              for p in ('x', 'y', 'z')]
+            else:
+                mask, out = mask  # Unpack the mask
+                pars = list(self.halos.dtype.names) + ['cat']
+                formats = ['float64'] * len(pars)
+                sample = np.zeros(out.size, dtype={'names': pars,
+                                                   'formats': formats})
+                for p in self.halos.dtype.names:
+                    sample[p] = self.halos[p][proxy_mask][mask]
+                sample['cat'] = out
+                samples[i] = sample
         return samples
 
-    def _scatter_mask(self, seed, cat, cat_dec, scatter, flipped):
+    def _scatter_mask(self, seed, cat, cat_dec, scatter, flipped, return_all):
         """Rematches galaxies and picks only ones in scope."""
         np.random.seed(seed)
         out = rematch(add_scatter(cat_dec, scatter), cat, flipped)
+#        print("Out is: ", out)
         # Eliminate NaNs and galaxies with mass/brightness below/above the cut
         x0, xf = self.scope
-        return (~np.isnan(out)) & (x0 < out) & (out < xf)
+        mask = (~np.isnan(out)) & (x0 < out) & (out < xf)
+        if not return_all:
+            return mask
+        return mask, out[mask]

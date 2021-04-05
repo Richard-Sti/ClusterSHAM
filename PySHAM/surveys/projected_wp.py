@@ -69,11 +69,13 @@ class ProjectedCorrelationFunction(BaseProjectedCorrelationFunction):
         """
         Ngals = self.data.size
         Nrands = self.randoms.size
+        print('NGALS', Ngals)
+        print('Nrands', Nrands)
 
         Xrands = np.vstack([self.randoms['RA'], self.randoms['DEC']]).T
         Xgals = np.vstack([self.data['RA'], self.data['DEC']]).T
 
-        mask = np.random.choice(np.arange(Nrands), Ngals, replace=False)
+        mask = np.random.choice(np.arange(Nrands), 3*Ngals, replace=False)
         kmeans = kmeans_sample(Xrands[mask, :], self.Njack, maxiter=250,
                                tol=1.0e-5, verbose=0)
         self.data['labels'] = kmeans.find_nearest(Xgals)

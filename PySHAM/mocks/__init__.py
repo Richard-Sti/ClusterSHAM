@@ -17,8 +17,8 @@
 from .likelihood import ClusteringLikelihood
 from .abundance_match import AbundanceMatch
 from .proxy import (VirialMassProxy, VirialVelocityProxy,
-                    ZmpeakVirialMassProxy)
+                    PeakRedshiftProxy)
 
 proxies = {VirialMassProxy.name: VirialMassProxy,
            VirialVelocityProxy.name: VirialVelocityProxy,
-           ZmpeakVirialMassProxy.name: ZmpeakVirialMassProxy}
+           PeakRedshiftProxy.name: PeakRedshiftProxy}
