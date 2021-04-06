@@ -18,11 +18,12 @@
 import numpy
 from AbundanceMatching import (AbundanceFunction, rematch, add_scatter,
                                calc_number_densities)
-from . import proxies
+from .proxy import proxies
 
 
 class AbundanceMatch:
-    r"""A wrapper around Yao-Yuan Mao's Subhalo Abundance Matching (SHAM)
+    r"""
+    A wrapper around Yao-Yuan Mao's Subhalo Abundance Matching (SHAM)
     Python package [1]. Performs abundance matching on a list of halos.
 
     Parameters
@@ -99,7 +100,7 @@ class AbundanceMatch:
     @halo_proxy.setter
     def halo_proxy(self, halo_proxy):
         """Sets the halo proxy."""
-        if type(halo_proxy) not in proxies.values():
+        if halo_proxy.name not in proxies.keys():
             raise ValueError("Unrecognised proxy '{}'. Supported proxies: {}"
                              .format(halo_proxy, [k for k in proxies.keys()]))
         self._halo_proxy = halo_proxy
@@ -134,6 +135,8 @@ class AbundanceMatch:
                     A deconvoluted catalog. Scatter is not added yet.
                 scatter : float
                     Gaussian scatter.
+                preselect_mask: numpy.ndarray
+                    A preselection mask.
         remainder : numpy.ndarray
             Optionally if `return_remainder` returns the deconvolution's
             remainder.
@@ -145,7 +148,15 @@ class AbundanceMatch:
         scatter *= self.scatter_mult
 
         # Calculate the AM proxy
-        plist, proxy_mask = self.halo_proxy.proxy(halos, theta)
+        proxy = self.halo_proxy(halos, theta)
+        res = {}
+        if len(proxy) == 2:
+            plist, preselect_mask = proxy
+            res.update({'preselect_mask': preselect_mask})
+        else:
+            plist = proxy
+
+
         if len(theta) != 0:
             raise ValueError("Unrecognised parameters '{}'"
                              .format(theta.keys()))
@@ -167,9 +178,9 @@ class AbundanceMatch:
         # Deconvoluted catalog. Without adding the scatter
         cat_deconv = self.af.match(nd_halos, scatter, False)
 
-        res = {'cat0': cat0,
-               'cat_deconv': cat_deconv,
-               'scatter': scatter}
+        res.update({'cat0': cat0,
+                    'cat_deconv': cat_deconv,
+                    'scatter': scatter})
 
         if return_remainder:
             return res, remainder
@@ -212,4 +223,10 @@ class AbundanceMatch:
         # Halos that were not matched are returned as NaNs
         mask = ((~numpy.isnan(cat_scatter)) & (cat_scatter > cut_range[0])
                 & (cat_scatter < cut_range[1]))
-        return mask, cat_scatter[mask]
+        catalog = cat_scatter[mask]
+
+        # Combine this with the preselection mask to be applicable to `halos`
+        preselect = catalogs.pop('preselect_mask', None)
+        if preselect is not None:
+            mask = numpy.where(preselect)[0][mask]
+        return mask, catalog

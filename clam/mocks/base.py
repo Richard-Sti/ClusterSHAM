@@ -173,39 +173,3 @@ class BaseClusteringLikelihood(Base):
     def __call__(self, theta):
         """Calls the loglikelihood and returns blobs."""
         return self.logpdf(theta)
-
-
-@add_metaclass(ABCMeta)
-class BaseProxy(object):
-    r""" Abstract class for handling the abundance matching proxies. All
-    proxies must inherit from this.
-
-    Parameters
-    ----------
-    halos_parameters: (list of) str
-        Names of halo parameters (properties) used to calculate the proxy.
-    """
-    _halos_parameters = None
-
-    @property
-    def halos_parameters(self):
-        """Returns the halo parameters needed for the proxy calculation."""
-        return self._halos_parameters
-
-    @halos_parameters.setter
-    def halos_parameters(self, pars):
-        """Sets the halo parameters."""
-        if isinstance(pars, str):
-            pars = [pars]
-        if not isinstance(pars, (list, tuple)):
-            raise ValueError("Halo parameters must be specified as a list.")
-        pars = list(pars)
-        if not all(isinstance(p, str) for p in pars):
-            raise ValueError("All halo parameters must be str.")
-        self._halos_parameters = pars
-
-    @abstractmethod
-    def proxy(self, halos, theta):
-        """Calculates the halo proxy for halos specified in ``halos``,
-        ``theta`` is a dictionary of proxy parameters."""
-        pass
