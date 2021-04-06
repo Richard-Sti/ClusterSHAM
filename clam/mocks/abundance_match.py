@@ -12,51 +12,42 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-"""A class that does abundance matching."""
 
-import random
+"""A class for abundance matching without too much strain on the memory."""
 
-import numpy as np
-
-from joblib import (Parallel, delayed, externals)
-from AbundanceMatching import (AbundanceFunction, add_scatter, rematch,
-                               calc_number_densities, LF_SCATTER_MULT)
-
-from .base import BaseAbundanceMatch
-
-MAX_INT = 2**32 - 1
+import numpy
+from AbundanceMatching import (AbundanceFunction, rematch, add_scatter,
+                               calc_number_densities)
+from . import proxies
 
 
-class AbundanceMatch(BaseAbundanceMatch):
+class AbundanceMatch:
     r"""A wrapper around Yao-Yuan Mao's Subhalo Abundance Matching (SHAM)
     Python package [1]. Performs abundance matching on a list of halos.
 
     Parameters
     ----------
-    nd_gal : numpy.ndarray
-        Number density of galaxies to be used. This can be either a luminosity
-        or a mass function. Shape must be (N, 2), where N is the number of
-        bins. The first column must be the absolute magnitude or log mass
-        and the second column the number density of that bin.
-    scope : tuple
-        Magnitude or log mass range over which to perform abundance matching.
-        Must be a len-2 tuple.
-    halos : numpy.ndarray
-        Array containing the halos. ``halos.dtype.names`` must include the
-        Cartesian coordinates and the halo proxy parameters.
+    x : numpy.ndarray (1D)
+        The galaxy proxy.
+    phi : numpy.ndarray (1D)
+        The abundance values at `x` in units of :math:`x^{-1} L^{-3}` where
+        :math:`L` is `boxsize` and :math:`x` is the galaxy proxy.
+    ext_range : len-2 tuple
+        Range of `x` over which to perform AM. Values outside `x` are
+        extrapolated. For more information see
+        `AbundanceMatching.AbundanceFunction`.
+    boxsize : int
+        Length of a side of the simulation box.
     halo_proxy : PySHAM.mocks.proxies
         A halo proxy object.
-    boxsize : int
-        Length of a side of the simulation box in which halos are located.
-    survey_scope : tuple
-        Magnitude or log mass range of the survey.
-        Must be a len-2 tuple.
-    Nmocks : int
-        Number of mocks to produce at a given posterior point.
-    nthreads : int
-        Number of threads.
-    max_scatter : float
-        Maximum prior value of scatter.
+    faint_end_first : bool
+        Whether in `x` the faint end is listed first. Typically true for
+        galaxy masses and false for magnitudes.
+    scatter_mult : float
+        A scatter multiplicative factor. Typically 1 for stellar mass and
+        2.5 for magnitudes.
+    **kwargs :
+        Optional arguments passed into `AbundanceMatching.AbundanceFunction`.
 
     References
     ----------
@@ -64,98 +55,161 @@ class AbundanceMatch(BaseAbundanceMatch):
 
     """
 
-    def __init__(self, nd_gal, scope, halos, boxsize, halo_proxy, max_scatter,
-                 survey_cutoffs=None, Nmocks=10, nthreads=1):
-        self.nd_gal = nd_gal
-        self.scope = scope
-        self.halo_proxy = halo_proxy
-        self.halos = halos
+    def __init__(self, x, phi, ext_range, boxsize, halo_proxy, faint_end_first,
+                 scatter_mult, **kwargs):
+        # Initialise the abundance function
+        self.af = AbundanceFunction(x, phi, ext_range,
+                                    faint_end_first=faint_end_first, **kwargs)
+        self._boxsize = None
         self.boxsize = boxsize
-        self.survey_cutoffs = survey_cutoffs
-        self.Nmocks = Nmocks
-        self.nthreads = nthreads
-        self._max_scatter = max_scatter
+        self._scatter_mult = None
+        self.scatter_mult = scatter_mult
+        self._halo_proxy = None
+        self.halo_proxy = halo_proxy
 
-        self._set_xrange()
+    @property
+    def boxsize(self):
+        """Simulation box side :math:`L`, the volume is :math:`L^3`."""
+        return self._boxsize
 
-    def _set_xrange(self):
-        """Sets the xrange over which abundance matching is done."""
-        dx = 2 * self.max_scatter
-        if self.is_luminosity:
-            dx *= LF_SCATTER_MULT
+    @boxsize.setter
+    def boxsize(self, boxsize):
+        """Sets `boxsize` and ensures it is positive."""
+        if boxsize < 0:
+            raise ValueError("'boxsize' must be positive.")
+        self._boxsize = boxsize
 
-        scope = [self.scope[0] - dx, self.scope[1] + dx]
-        if self.survey_cutoffs is not None:
-            if scope[0] < self.survey_cutoffs[0]:
-                scope[0] = self.survey_cutoffs[0]
-            if scope[1] > self.survey_cutoffs[1]:
-                scope[1] = self.survey_cutoffs[1]
-        self._xrange = tuple(scope)
+    @property
+    def scatter_mult(self):
+        """The scatter multiplicative factor."""
+        return self._scatter_mult
 
-    def _seeds(self):
-        """Returns an array of seeds, ensuring all are unique."""
-        while True:
-            random.seed()
-            seeds = [random.randint(0, MAX_INT) for __ in range(self.Nmocks)]
-            seeds = list(set(seeds))
-            if len(seeds) == self.Nmocks:
-                return seeds
+    @scatter_mult.setter
+    def scatter_mult(self, scatter_mult):
+        """Sets `scatter_mult`."""
+        if scatter_mult < 0:
+            raise ValueError("'scatter_mult' must be > 0.")
+        self._scatter_mult = scatter_mult
 
-    def match(self, theta, return_all=False):
-        """Matches galaxies to halos."""
-        scatter = theta.pop('scatter')
-        plist, proxy_mask = self.halo_proxy.proxy(self.halos, theta)
+    @property
+    def halo_proxy(self):
+        """The halo proxy."""
+        return self._halo_proxy
+
+    @halo_proxy.setter
+    def halo_proxy(self, halo_proxy):
+        """Sets the halo proxy."""
+        if type(halo_proxy) not in proxies.values():
+            raise ValueError("Unrecognised proxy '{}'. Supported proxies: {}"
+                             .format(halo_proxy, [k for k in proxies.keys()]))
+        self._halo_proxy = halo_proxy
+
+    def deconvoluted_catalogs(self, theta, halos, nrepeats=20,
+                              return_remainder=False):
+        """
+        Returns a catalog with no scatter and a deconvoluted scatter. To
+        calculate catalogs with scatter see `self.add_scatter`.
+
+        Parameters
+        ----------
+        theta : dict
+            Halo proxy parameters. Must include parameters required by
+            `halo_proxy` and can include `scatter`.
+        halos : structured numpy.ndarray
+            Halos array with named fields containing the required parameters
+            to calculate the halo proxy.
+        n_repeats : int, optional
+            Number of times to repeat fiducial deconvolute process. By
+            default 20.
+        return_remainder : bool, optional
+            Whether to return the remainder of the convolution.
+
+        Returns
+        -------
+        result : dict
+            Keys include:
+                cat0 : numpy.ndarray
+                    A catalog without scatter.
+                cat_deconv : numpy.ndarray
+                    A deconvoluted catalog. Scatter is not added yet.
+                scatter : float
+                    Gaussian scatter.
+        remainder : numpy.ndarray
+            Optionally if `return_remainder` returns the deconvolution's
+            remainder.
+        """
+        # Pop the scatter from theta, apply any multiplicatory factor
+        scatter = theta.pop('scatter', None)
+        if scatter is None:
+            scatter = 0
+        scatter *= self.scatter_mult
+
+        # Calculate the AM proxy
+        plist, proxy_mask = self.halo_proxy.proxy(halos, theta)
+        if len(theta) != 0:
+            raise ValueError("Unrecognised parameters '{}'"
+                             .format(theta.keys()))
+
         nd_halos = calc_number_densities(plist, self.boxsize)
-        # LF scatter has another scalar multiplying it (2.5)
-        if self.is_luminosity:
-            scatter *= LF_SCATTER_MULT
-        af = AbundanceFunction(self.nd_gal[:, 0], self.nd_gal[:, 1],
-                               self._xrange,
-                               faint_end_first=self._faint_end_first)
-        # Deconvolute the scatter
-        af.deconvolute(scatter, repeat=20)
-        # Catalog with 0 scatter
-        cat = af.match(nd_halos)
-        cat_dec = af.match(nd_halos, scatter, False)
-        # Start generating catalogs. Ensure different random seeds
-        seeds = self._seeds()
-        if self.nthreads > 1:
-            with Parallel(self.nthreads, verbose=10, backend='loky') as par:
-                masks = par(delayed(self._scatter_mask)(
-                    i, cat, cat_dec, scatter, af._x_flipped, return_all)
-                    for i in seeds)
-            # clean up the parallel pools
-            externals.loky.get_reusable_executor().shutdown(wait=True)
+        # AbundanceFunction stores deconvoluted results by scatter, so no
+        # need to reset it when calling it with a different scatter.
+        if return_remainder:
+            remainder = self.af.deconvolute(scatter, repeat=nrepeats)
         else:
-            masks = [self._scatter_mask(i, cat, cat_dec, scatter,
-                                        af._x_flipped, return_all)
-                     for i in seeds]
-        samples = [None] * self.Nmocks
+            try:
+                self.af._x_deconv[scatter]
+            except KeyError:
+                self.af.deconvolute(scatter, repeat=nrepeats,
+                                    return_remainder=False)
 
-        for i, mask in enumerate(masks):
-            if not return_all:
-                samples[i] = [self.halos[p][proxy_mask][mask]
-                              for p in ('x', 'y', 'z')]
-            else:
-                mask, out = mask  # Unpack the mask
-                pars = list(self.halos.dtype.names) + ['cat']
-                formats = ['float64'] * len(pars)
-                sample = np.zeros(out.size, dtype={'names': pars,
-                                                   'formats': formats})
-                for p in self.halos.dtype.names:
-                    sample[p] = self.halos[p][proxy_mask][mask]
-                sample['cat'] = out
-                samples[i] = sample
-        return samples
+        # Catalog with 0 scatter
+        cat0 = self.af.match(nd_halos)
+        # Deconvoluted catalog. Without adding the scatter
+        cat_deconv = self.af.match(nd_halos, scatter, False)
 
-    def _scatter_mask(self, seed, cat, cat_dec, scatter, flipped, return_all):
-        """Rematches galaxies and picks only ones in scope."""
-        np.random.seed(seed)
-        out = rematch(add_scatter(cat_dec, scatter), cat, flipped)
-#        print("Out is: ", out)
-        # Eliminate NaNs and galaxies with mass/brightness below/above the cut
-        x0, xf = self.scope
-        mask = (~np.isnan(out)) & (x0 < out) & (out < xf)
-        if not return_all:
-            return mask
-        return mask, out[mask]
+        res = {'cat0': cat0,
+               'cat_deconv': cat_deconv,
+               'scatter': scatter}
+
+        if return_remainder:
+            return res, remainder
+        return res
+
+    def add_scatter(self, catalogs, cut_range):
+        """
+        Adds scatter to a previously deconvoluted catalog from
+        `self.deconvoluted_catalogs` and selects galaxies within `cut_range`.
+
+        Parameters
+        ----------
+        catalogs : dict
+            Keys must include:
+                cat0 : numpy.ndarray
+                    A catalog without scatter.
+                cat_deconv : numpy.ndarray
+                    A deconvoluted catalog. Scatter is not added yet.
+                scatter : float
+                    Gaussian scatter used to deconvolute this catalog.
+        cut_range : len-2 tuple
+            Faint and bright end cut offs.
+
+        Returns
+        -------
+        mask : numpy.ndarray
+            Mask corresponding to the `halos` object passed into
+            `self.deconvoluted_catalogs`. Determines which halos were
+            assigned a within `cut_range`.
+        catalog : numpy.ndarray
+            Matched galaxies. Typically either log stellar mass or absolute
+            magnitude.
+        """
+        if cut_range[0] > cut_range[1]:
+            cut_range = cut_range[::-1]
+
+        cat_scatter = add_scatter(catalogs['cat_deconv'], catalogs['scatter'])
+        cat_scatter = rematch(cat_scatter, catalogs['cat0'],
+                              self.af._x_flipped)
+        # Halos that were not matched are returned as NaNs
+        mask = ((~numpy.isnan(cat_scatter)) & (cat_scatter > cut_range[0])
+                & (cat_scatter < cut_range[1]))
+        return mask, cat_scatter[mask]
