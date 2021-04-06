@@ -1,4 +1,4 @@
-# Clam - *CL*ustering-calibrated subhalo *A*bundance *M*atching model
+# ClusterSHAM - Clustering-calibrated subhalo abundance matching models
 
 Clam is a Python tool to calibrate subhalo abundance matching models by measuring the 2-point correlation function in galaxy mocks.
 
