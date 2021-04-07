@@ -36,6 +36,7 @@ class BaseProxy(object):
         Names of halo parameters to calculate the proxy.
     """
     _halo_params = None
+    _cache = {}
 
     @property
     def halo_params(self):
@@ -105,7 +106,23 @@ class VirialMassProxy(BaseProxy):
             raise ValueError("'alpha' must be specified.")
         self._check_halo_attributes(halos)
 
-        return halos['mvir'] * (halos['mpeak'] / halos['mvir'])**alpha
+        # Get the cached proxy parameters. If not found calculate
+        try:
+            logMvir = self._cache['logMvir']
+        except KeyError:
+            logMvir = numpy.log10(halos['mvir'])
+            self._cache.update({'logMvir': logMvir})
+        try:
+            logMratio = self._cache['logMratio']
+        except KeyError:
+            logMratio = numpy.log10(halos['mpeak'] / halos['mvir'])
+            self._cache.update({'logMratio': logMratio})
+
+        # More efficient than a single line expression
+        proxy = logMvir
+        proxy += alpha * logMratio
+        return proxy
+
 
 
 class PeakRedshiftProxy(BaseProxy):
@@ -117,7 +134,7 @@ class PeakRedshiftProxy(BaseProxy):
     name = 'zmpeak_proxy'
 
     def __init__(self):
-        self.halo_params = ['mvir', 'zmpeak']
+        self.halo_params = ['mvir', 'mpeak_scale']
 
     def __call__(self, halos, theta):
         """
@@ -140,9 +157,20 @@ class PeakRedshiftProxy(BaseProxy):
             raise ValueError("'zcutoff' must be specified.")
         self._check_halo_attributes(halos)
 
-        mask = halos['zmpeak'] < zcutoff
-        proxy = halos['mvir'][mask]
+        # Save values that do not change during runtime
+        try:
+            zmpeak = self._cache['zmpeak']
+        except KeyError:
+            zmpeak = 1. / halos['mpeak_scale'] - 1
+            self._cache.update({'zmpeak': zmpeak})
+        try:
+            logMvir = self._cache['logMvir']
+        except KeyError:
+            logMvir = numpy.log10(halos['mvir'])
+            self._cache.update({'logMvir': logMvir})
 
+        mask = zmpeak < zcutoff
+        proxy = logMvir[mask]
         return proxy, mask
 
 
@@ -154,8 +182,12 @@ class VirialVelocityProxy(BaseProxy):
 
     where :math:`v_0` is the virial velocity evaluated at the peak halo mass
     and :math:`v_{\max}` is the maximum circular velocity.
-    """
 
+    Note
+    ----
+    This proxy has not been optimised and requires precomputed 'vvir`.
+
+    """
     name = 'vvir_proxy'
 
     def __init__(self):

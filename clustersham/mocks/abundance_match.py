@@ -135,8 +135,10 @@ class AbundanceMatch:
                     A deconvoluted catalog. Scatter is not added yet.
                 scatter : float
                     Gaussian scatter.
-                preselect_mask: numpy.ndarray
+                preselect_mask : numpy.ndarray
                     A preselection mask.
+                mask_nans : numpy.ndarray
+                    A mask of which halos had a galaxy assigned.
         remainder : numpy.ndarray
             Optionally if `return_remainder` returns the deconvolution's
             remainder.
@@ -178,9 +180,13 @@ class AbundanceMatch:
         # Deconvoluted catalog. Without adding the scatter
         cat_deconv = self.af.match(nd_halos, scatter, False)
 
-        res.update({'cat0': cat0,
-                    'cat_deconv': cat_deconv,
-                    'scatter': scatter})
+        # Figure out which galaxies in the catalog are not NaNs
+        mask_nans = ~numpy.isnan(cat_deconv)
+
+        res.update({'cat0': cat0[mask_nans],
+                    'cat_deconv': cat_deconv[mask_nans],
+                    'scatter': scatter,
+                    'mask_nans': mask_nans})
 
         if return_remainder:
             return res, remainder
@@ -220,13 +226,18 @@ class AbundanceMatch:
         cat_scatter = add_scatter(catalogs['cat_deconv'], catalogs['scatter'])
         cat_scatter = rematch(cat_scatter, catalogs['cat0'],
                               self.af._x_flipped)
-        # Halos that were not matched are returned as NaNs
-        mask = ((~numpy.isnan(cat_scatter)) & (cat_scatter > cut_range[0])
-                & (cat_scatter < cut_range[1]))
-        catalog = cat_scatter[mask]
 
-        # Combine this with the preselection mask to be applicable to `halos`
-        preselect = catalogs.pop('preselect_mask', None)
-        if preselect is not None:
-            mask = numpy.where(preselect)[0][mask]
+        # Select halos that make the cut
+        mask_cut = numpy.logical_and(cat_scatter > cut_range[0],
+                                      cat_scatter < cut_range[1])
+        catalog = cat_scatter[mask_cut]
+        # Final mask denoting which halos made it
+        mask = numpy.where(catalogs['mask_nans'])[0][mask_cut]
+
+        # Apply preselection, if any
+        try:
+            mask = numpy.where(catalogs['preselect_mask'])[0][mask]
+        except KeyError:
+            pass
+
         return mask, catalog
