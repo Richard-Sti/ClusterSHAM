@@ -1,0 +1,28 @@
+[Main]
+boxsize = 100
+survey_path = '../data/ObsCF9.8to10.4.p'
+cut_range = [9.8, 10.4]
+Nmocks = 50
+
+
+[AbundanceMatch]
+proxy = 'mvir_proxy'
+MFpath = '../data/SMF.npy'
+ext_range = [9.2, 11.0]
+
+[Correlator]
+rpmin = 0.1
+rpmax = 10
+nrpbins = 12
+pimax = 15
+subside = 25
+Nmult = 25
+
+[Bounds]
+alpha = [0.0, 1.0]
+scatter = [0.005, 0.3]
+
+
+
+
+

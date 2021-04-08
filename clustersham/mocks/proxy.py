@@ -82,7 +82,7 @@ class VirialMassProxy(BaseProxy):
     """
     name = 'mvir_proxy'
 
-    def __init__(self):
+    def __init__(self, keep_params=None):
         self.halo_params = ['mvir', 'mpeak']
 
     def __call__(self, halos, theta):
