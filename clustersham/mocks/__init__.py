@@ -13,9 +13,6 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""Tools to work with mock galaxy catalogues."""
-
-
 from .correlators import Correlator
 from .abundance_match import AbundanceMatch
 from .proxy import (VirialMassProxy, VirialVelocityProxy, PeakRedshiftProxy,
