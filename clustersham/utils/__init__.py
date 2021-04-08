@@ -19,4 +19,3 @@ from ._utils import (load_pickle, dump_pickle, in_hull)
 from .plots import Plots
 
 from .paper_model import PaperModel
-

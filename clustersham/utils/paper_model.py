@@ -214,8 +214,7 @@ class PaperModel:
 
         wps = numpy.zeros(shape=(self.Nmocks, self.correlator.Nrpbins))
         for i in range(self.Nmocks):
-            mask, cat = self.AM.add_scatter(deconv_cat,
-                                                      self.cut_range)
+            mask = self.AM.add_scatter(deconv_cat, self.cut_range)
 
             if i == 0:
                 cov_jack, wp = self.correlator.mock_jackknife_cov(

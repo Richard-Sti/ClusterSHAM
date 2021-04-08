@@ -193,7 +193,7 @@ class AbundanceMatch:
             return res, remainder
         return res
 
-    def add_scatter(self, catalogs, cut_range):
+    def add_scatter(self, catalogs, cut_range, return_catalog=False):
         """
         Adds scatter to a previously deconvoluted catalog from
         `self.deconvoluted_catalogs` and selects galaxies within `cut_range`.
@@ -210,6 +210,8 @@ class AbundanceMatch:
                     Gaussian scatter used to deconvolute this catalog.
         cut_range : len-2 tuple
             Faint and bright end cut offs.
+        return_catalog : bool, optional
+            Whether to return the matched catalog. By default not returned.
 
         Returns
         -------
@@ -218,8 +220,8 @@ class AbundanceMatch:
             `self.deconvoluted_catalogs`. Determines which halos were
             assigned a within `cut_range`.
         catalog : numpy.ndarray
-            Matched galaxies. Typically either log stellar mass or absolute
-            magnitude.
+            Returned if `return_catalog`. Matched galaxies, typically either
+            log stellar mass or absolute magnitude.
         """
         if cut_range[0] > cut_range[1]:
             cut_range = cut_range[::-1]
@@ -241,4 +243,6 @@ class AbundanceMatch:
         except KeyError:
             pass
 
-        return mask, catalog
+        if return_catalog:
+            return mask, catalog
+        return mask
