@@ -22,6 +22,7 @@ In the future may include a conditional stellar mass function and others.
 """
 
 from abc import (ABC, abstractmethod)
+import numpy
 from scipy.stats import multivariate_normal
 
 
@@ -50,7 +51,8 @@ class BaseLikelihood(ABC):
 
 class GaussianClusteringLikelihood(BaseLikelihood):
     """
-    Lala
+    The multivariate Gaussian likelihood. It is assumed that the mean is
+    the survey correlation function and covariances are added.
 
     Parameters
     ----------
@@ -71,7 +73,7 @@ class GaussianClusteringLikelihood(BaseLikelihood):
         """
         The survey 2-point correlation function.
         """
-        return self.wp_survey
+        return self._wp_survey
 
     @wp_survey.setter
     def wp_survey(self, wp):
@@ -119,7 +121,7 @@ class GaussianClusteringLikelihood(BaseLikelihood):
             Log-likelihood of `mock_wp`.
         """
         # Add up the covariance matrices
-        cov = self.cov_survey
+        cov = numpy.copy(self.cov_survey)
         if mock_stoch_cov is not None:
             cov += mock_stoch_cov
         if mock_jack_cov is not None:
