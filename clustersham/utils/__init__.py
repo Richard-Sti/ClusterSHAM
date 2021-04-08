@@ -12,13 +12,8 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-"""Make proxies top level"""
 
-from .likelihood import ClusteringLikelihood
-from .abundance_match import AbundanceMatch
-from .proxy import (VirialMassProxy, VirialVelocityProxy,
-                    PeakRedshiftProxy)
+from .likelihood import GaussianClusteringLikelihood
 
-proxies = {VirialMassProxy.name: VirialMassProxy,
-           VirialVelocityProxy.name: VirialVelocityProxy,
-           PeakRedshiftProxy.name: PeakRedshiftProxy}
+from ._utils import (load_pickle, dump_pickle, in_hull)
+from .plots import Plots
