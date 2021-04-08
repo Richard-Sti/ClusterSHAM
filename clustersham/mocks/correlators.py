@@ -13,91 +13,68 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""Likelihood models to contrain the galaxy-halo connection."""
+"""
+Correlator to calculate the 2-point correlation function and jackknife
+covariance matrix.
+"""
 
 import numpy
 import Corrfunc
 
 
-class ClusteringLikelihood:
+class Correlator:
     """
-    A clustering likelihood on the projected two-point correlation
-    functions. Assumes a normal distribution on the residuals.
+    A class providing a simple interface to calculate the 2-point projected
+    correlation function and the jackknife covariance matrix.
 
+    When calculating the jackknife covariance matrix caches the RR pair counts
+    and upon every call to `self.mock_jackknife_cov` generates identical
+    randoms. This is relatively inexpensive compared to the the price for
+    storing the randoms consistently in the memory, which may be required
+    elsewhere at runtime.
 
-    BOX SHOULD BE 0, L
+    .. Note:
+        The simulation box must be cornered at the origin.
+
 
     Parameters
     ----------
-    wp_survey : numpy.ndarray
-        Survey correlation function. Must be calculated over bins specified
-        in ``rpbins``.
-    cov_survey : numpy.ndarray
-        Survey correlation function covariance matrix. Must be calculated over
         bins specified in ``rpbins``.
     rpbins : numpy.ndarray
-        Array of bins orthogonal to the line of sight in which the
-        project correlation function is calculated.
+        Array of bins projected orthogonal to the line of sight in which
+        to calculate the 2-point projected correlation function.
     pimax : float
         Maximum distance along the line of sight to integrate over when
-        calculating the projected wp.
+        calculating the 2-point projected correlation function.
+    boxsize : int
+        The side length of the simulation box.
+    subside : int
+        The subvolume side length in the x-y plane used for jackknifing.
+    Nmult : int, optional
+        How many more randoms than data in the jackknife calculation. By
+        default 50.
     """
 
-    def __init__(self, wp, wp_cov, rpbins, pimax, boxsize):
-
-        self._rpbins = None
-        self._wp = None
-        self._wp_cov = None
-        self._pimax = None
-        self.rpbins = rpbins
-        self._Nrpbins = self.rpbins.size - 1
-        self.Nrpbins = self.rpbins.size - 1
-
-        self.wp = wp
-        self.wp_cov = wp_cov
-        self.pimax = pimax
-
-        # Setter!
-        self.boxsize = boxsize
-
-        # SET
-        self._subside = None
-        self.subside = 50
-
-        self._Nsubs= int(self.boxsize / self.subside)**2
-        self.Nmult = 40
-
+    def __init__(self, rpbins, pimax, boxsize, subside, Nmult=50):
+        # Caching RR pair counts and random state
         self._cache = {}
         self._random_state = None
 
-    @property
-    def wp(self):
-        """
-        The survey 2-point correlation function calculated in bins
-        `self.rpbins`.
-        """
-        return self._wp
-
-    @wp.setter
-    def wp(self, wp):
-        """Sets `wp`. Checks for correct shape"""
-        if wp.shape != (self._Nrpbins, ):
-            raise ValueError("'wp' must have a shape "
-                             "(`self.rpbins.size - 1, `).")
-        self._wp = wp
-
-    @property
-    def wp_cov(self):
-        """The covariance matrix for `self.wp`."""
-        return self._wp_cov
-
-    @wp_cov.setter
-    def wp_cov(self, cov):
-        """Sets `wp_cov`."""
-        if cov.shape != (self._Nrpbins, self._Nrpbins):
-            raise ValueError("`wp_cov` must be of 2D numpy.ndarray type "
-                             "corresponding to `self.rpbins`.")
-        self._wp_cov = cov
+        # Initialise a bunch of place holders
+        self._rpbins = None
+        self._Nrpbins = None
+        self._pimax = None
+        self._subside = None
+        self._Nmult = None
+        self._boxsize = None
+        # And store these
+        self.rpbins = rpbins
+        self.boxsize = boxsize
+        self.subside = subside
+        self.pimax = pimax
+        self.Nmult = Nmult
+        # Number of jackknifes
+        self._Nsubs= int(self.boxsize / self.subside)**2
 
     @property
     def rpbins(self):
@@ -112,9 +89,15 @@ class ClusteringLikelihood:
         """Sets `rpbins`."""
         if rpbins.ndim != 1:
             raise ValueError("`rpbins` must be of 1D numpy.ndarray type.")
-        # Must clean the cache
-        self._cache.clean()
+        self._flush_cache()
         self._rpbins = rpbins
+        self._Nrpbins = rpbins.size - 1
+
+
+    @property
+    def Nrpbins(self):
+        """The number of radially projected bins."""
+        return self._Nrpbins
 
     @property
     def pimax(self):
@@ -126,26 +109,62 @@ class ClusteringLikelihood:
         """Sets `pimax`."""
         if not isinstance(pimax, (int, float)):
             raise ValueError("`pimax` must be either an int or a float.")
+        self._flush_cache()
         self._pimax = pimax
 
-    # CHECK THIS SETTER
+    @property
+    def boxsize(self):
+        """Simulation box side length."""
+        return self._boxsize
+
+    @boxsize.setter
+    def boxsize(self, L):
+        """
+        Sets `boxsize`, ensures it is an integer for jackknifing. This
+        requirement could be lifted in the future if necessary.
+        """
+        if not isinstance(L, int):
+            raise ValueError("'boxsize' must be of int type")
+        self._boxsize = L
+
     @property
     def subside(self):
-        """Length of the subvolume being removed at each turned. Assumed
-        to be ``subside`` x ``subside`` x ``boxsize."""
+        r"""
+        Side :math:`d` of the subvolume removed at each turn. If the box
+        side is :math:`L`, then the removed subvolume is :math:`d^2 * L`.
+        """
         return self._subside
 
     @subside.setter
     def subside(self, subside):
-        if not isinstance(subside, (float, int)):
-            raise ValueError('``subside`` must be of type int.')
+        if not isinstance(subside, int):
+            raise ValueError('`subside` must be an integer.')
         if not self.boxsize % subside == 0:
-            raise ValueError('``subside`` must divide ``boxsize``.')
-        self._subside = int(subside)
+            raise ValueError('`subside` must divide `self.boxsize`.')
+        self._flush_cache()
+        self._subside = subside
+
+    @property
+    def Nmult(self):
+        """
+        How many times more randoms than data to generate when calculating
+        jackknifes.
+        """
+        return self._Nmult
+
+    @Nmult.setter
+    def Nmult(self, N):
+        """Sets `Nmult`."""
+        if not isinstance(N, int):
+            raise ValueError("'Nmult' must be of int type.")
+        self._Nmult = N
 
     def _flush_cache(self):
-        """WRITE THIS."""
-        pass
+        """
+        Flushes the stored RR counts and resets the stored random state.
+        """
+        self._cache.clear()
+        self._random_state = None
 
     def mock_wp(self, x, y, z, nthreads=1):
         """
@@ -265,7 +284,7 @@ class ClusteringLikelihood:
         bins += numpy.digitize(x, edges) - 1
         return bins
 
-    def mock_jackknife_cov(self, x, y, z, nthreads=1):
+    def mock_jackknife_cov(self, x, y, z, return_wp=False, nthreads=1):
         """
         Calculates the jackknife covariance error on a mock galaxy catalogue.
         In the first step, both data and random pairs are counted in the whole
@@ -285,22 +304,29 @@ class ClusteringLikelihood:
             Galaxy positions along the z-axis.
         nthreads : int, optional
             Number of threads. By default 1.
+        return_wp : bool, optional
+            Whether to return the mean 2-point correlation function.
+            By default False, not returned.
 
         Returns
         -------
         cov : numpy.ndarray
-            Jackknife covariance matrix of shape (`self.Nrpbins,
-            self.Nrpbins`).
+            Jackknife covariance matrix of shape (`self.Nrpbins`,
+            `self.Nrpbins`).
+        wp : numpy.ndarray
+            2-point correlation function of shape (`self.Nrpbins`, ).
+            Returned if `return_wp`.
         """
         Nd = x.size
         Nr = Nd * self.Nmult
 
         try:
             if self._cache['Nd_last'] != Nd:
-                self._cache.clean()
-                self._random_state = None
+                self._flush_cache()
         except KeyError:
-            pass
+            if numpy.min(x) < 0 or numpy.min(y) < 0 or numpy.min(z) < 0:
+                raise ValueError("The simulation box must be cornered "
+                                 "at the origin.")
         # Takes extra care of the random number generator
         xrand, yrand, zrand = self._get_randoms(Nr)
 
@@ -326,6 +352,7 @@ class ClusteringLikelihood:
         except KeyError:
             bins_rand = self._bin_points(xrand, yrand)
             self._cache.update({'bins_rand': bins_rand})
+
         for i in range(self._Nsubs):
             data_mask = bins_data == i
             rand_mask = bins_rand == i
@@ -355,8 +382,12 @@ class ClusteringLikelihood:
                     Nd_jack, Nd_jack, Nr_jack, Nr_jack, DD_jack, DR_jack,
                     DR_jack, RR_jack, nrpbins=self._Nrpbins, pimax=self.pimax)
 
-        # Returns the jackknife covariance matrix
-        return numpy.cov(wps, rowvar=False, bias=True) * (self._Nsubs - 1)
+        # The jackknife covariance matrix
+        cov = numpy.cov(wps, rowvar=False, bias=True) * (self._Nsubs - 1)
+        if return_wp:
+            wp = numpy.mean(wps, axis=0)
+            return cov, wp
+        return cov
 
     @staticmethod
     def _substract_counts(box_counts, subbox_counts):

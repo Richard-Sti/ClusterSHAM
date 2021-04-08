@@ -16,7 +16,7 @@
 """Tools to work with mock galaxy catalogues."""
 
 
-from .likelihood import ClusteringLikelihood
+from .correlators import Correlator
 from .abundance_match import AbundanceMatch
 from .proxy import (VirialMassProxy, VirialVelocityProxy, PeakRedshiftProxy,
                     proxies)
