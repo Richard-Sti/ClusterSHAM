@@ -18,24 +18,116 @@ from scipy.stats import uniform
 
 
 class PaperModel:
-    """Finish writing docs and setters for this... """
+    """
+    The clustering-calibrated subhalo abundance matching model of [1].
+    Compares the mock galaxy clustering (determined by the halo proxy) to
+    observations. Assumes the standard Gaussian likelihood and uniform priors
+    on halo proxy parameters and scatter.
 
-    def __init__(self, AM_generator, likelihood_model, cluster_model, bounds, Nmocks, cut_range):
-        self._AM_generator = None
-        self._likelihood_model = None
-        self._prior_dist = None
-        self._cluster_model = None
+    At each halo proxy parametrisation generates 50 mocks (with a different
+    seed), calculates the jackknife covariance matrix using the first mock,
+    and calculates the 2-point correlation function for all remaining mocks.
+
+    Parameters
+    ----------
+    AM : `clustersham.mocks.AbundanceMatch` object
+        Abundance matching interface to generate the mock galaxy catalogs.
+    correlator : `clustersham.mocks.Correlator` object
+        Correlator object to calculate the 2-point statistics.
+    likelihood : `clustersham.utils.GaussianClusteringLikelihood` object
+        Likelihood object to calculate the log-probability.
+    bounds : dict
+        Dictionary with parameter boundaries {key: (min, max)}.
+    cut_range : len-2 tuple
+        Galaxy proxy range for which to calculate the statistics.
+    Nmocks : int, optional
+        Number of galaxy mocks to generate at a fixed halo proxy and scatter.
+        By default 50.
+    seed : int, optional
+        Random seed.
+
+
+    References
+    ----------
+    .. [1] https://arxiv.org/abs/2101.02765
+    """
+
+    def __init__(self, AM, correlator, likelihood, bounds, cut_range,
+                 Nmocks=50, seed=42):
+        self._AM = None
+        self._correlator = None
+        self._likelihood = None
         self._bounds = None
+        self._prior_dist = None
+        self._Nmocks = None
+        self._cut_range = None
 
+        self.AM = AM
+        self.correlator = correlator
+        self.likelihood = likelihood
         self.bounds = bounds
         self.Nmocks = Nmocks
         self.cut_range = cut_range
+        # Set the random seed
+        numpy.random.seed(seed)
 
-        self.AM_generator = AM_generator
-        self.likelihood_model = likelihood_model
-        self.cluster_model = cluster_model
+    @property
+    def AM(self):
+        """The abundance matching generator."""
+        return self._AM
 
+    @AM.setter
+    def AM(self, AM):
+        """Sets `AM`."""
+        err = False
+        try:
+            if AM.name != "AbundanceMatch":
+                err = True
+        except AttributeError:
+            err = True
+        if err:
+            raise ValueError("`AM` must be of "
+                             "`clustersham.mocks.AbundanceMatch` type.")
+        self._AM = AM
 
+    @property
+    def correlator(self):
+        """The correlator. Used to count the 2-point statistics."""
+        return self._correlator
+
+    @correlator.setter
+    def correlator(self, correlator):
+        """Sets `correlator`."""
+        err = False
+        try:
+            if correlator.name != "Correlator":
+                err = True
+        except AttributeError:
+            err = True
+        if err:
+            raise ValueError("`correlator` must be of "
+                             "`clustersham.mocks.Correlator` type.")
+        self._correlator = correlator
+
+    @property
+    def likelihood(self):
+        """The likelihood object."""
+        return self._likelihood
+
+    @likelihood.setter
+    def likelihood(self, likelihood):
+        """Sets `likelihood`."""
+        err = False
+        try:
+            if likelihood.name != "GaussianClusteringLikelihood":
+                err = True
+        except AttributeError:
+            err = True
+        if err:
+            raise ValueError(
+                    "`likelihood` must be of "
+                    "`clustersham.utils.GaussianClusteringLikelihood` type.")
+        self._likelihood = likelihood
 
     @property
     def bounds(self):
@@ -70,21 +162,67 @@ class PaperModel:
         """Prior uniform distribution on each parameter."""
         return self._prior_dist
 
-    def mock_wps(self, theta, halos):
-        """ Docs """
-        deconv_cat = self.AM_generator.deconvoluted_catalogs(theta, halos)
+    @property
+    def Nmocks(self):
+        """Number of mock catalogues to be generated at point."""
+        return self._Nmocks
 
-        wps = numpy.zeros(shape=(self.Nmocks, self.cluster_model.Nrpbins))
+    @Nmocks.setter
+    def Nmocks(self, N):
+        """Sets `Nmocks`."""
+        if not isinstance(N, int):
+            raise ValueError("`Nmocks` must be an integer.")
+        self._Nmocks = N
+
+    @property
+    def cut_range(self):
+        """Galaxy proxy range for which to calculate the statistics."""
+        return self._cut_range
+
+    @cut_range.setter
+    def cut_range(self, cut_range):
+        """Sets `cut_range`."""
+        if len(cut_range) != 2:
+            raise ValueError("`cut_range` must be a tuple of len 2.")
+        if cut_range[0] > cut_range[1]:
+            cut_range = cut_range[::-1]
+        self._cut_range = cut_range
+
+    def mock_wps(self, theta, halos):
+        """
+        Iteratively generates `self.Nmocks` galaxy mocks. At each iteration
+        the 2-point correlation function is calculated. Jackknifes the
+        simulation box on the first iteration.
+
+        Parameters
+        ----------
+        theta : dict
+            Dictionary of halo proxy parameters and scatter.
+        halos : structured numpy.ndarray
+            Array (with named fields) with halo properties.
+
+        Returns
+        -------
+        mean_wp : numpy.ndarray
+            The mean 2-point correlation function.
+        cov_stoch : numpy.ndarray
+            The stochastic covariance matrix.
+        cov_jack : numpy.ndarray
+            The jackknife covariance matrix.
+        """
+        deconv_cat = self.AM.deconvoluted_catalogs(theta, halos)
+
+        wps = numpy.zeros(shape=(self.Nmocks, self.correlator.Nrpbins))
         for i in range(self.Nmocks):
-            mask, cat = self.AM_generator.add_scatter(deconv_cat,
+            mask, cat = self.AM.add_scatter(deconv_cat,
                                                       self.cut_range)
 
             if i == 0:
-                cov_jack, wp = self.cluster_model.mock_jackknife_cov(
+                cov_jack, wp = self.correlator.mock_jackknife_cov(
                         halos['x'][mask], halos['y'][mask], halos['z'][mask],
                         return_wp=True)
             else:
-                wp = self.cluster_model.mock_wp(
+                wp = self.correlator.mock_wp(
                         halos['x'][mask], halos['y'][mask], halos['z'][mask])
 
             wps[i, :] = wp
@@ -95,7 +233,39 @@ class PaperModel:
         return mean_wp, cov_stoch, cov_jack
 
     def __call__(self, theta, halos, return_blobs=False):
+        """
+        Calculates the log-posterior for halo proxy parameters and scatter.
+        Returns `numpy.nan` if outside of prior boundaries.
 
+        Parameters
+        ----------
+        theta : dict
+            Dictionary of halo proxy parameters and scatter.
+        halos : structured numpy.ndarray
+            Array (with named fields) with halo properties.
+        return_blobs : bool, optional
+            Whether to return blobs (logprior, loglikelihood, the mean
+            2-point correlation function and the covariance matrices).
+            By default False.
+
+        Returns
+        -------
+        logposterior : float
+            The log posterior of the halo proxy parameters and scatter.
+        blobs : dict
+            Returned if `return_blobs`. If outside of prior boundaries returns
+            an empty dictionary, otherwise contains:
+                log_l : float
+                    The log likelihood.
+                log_p : float
+                    The log prior.
+                wp : numpy.ndarray
+                    The mean 2-point correlation function.
+                cov_stoch : numpy.ndarray
+                    The stochastic covariance matrix.
+                cov_jack : numpy.ndarray
+                    The jackknife covariance matrix.
+        """
         logp = sum(self.prior_dist[key].logpdf(val)
                    for key, val in theta.items())
         if not numpy.isfinite(logp):
@@ -104,7 +274,7 @@ class PaperModel:
             return numpy.nan
 
         mean_wp, cov_stoch, cov_jack = self.mock_wps(theta, halos)
-        logl = self.likelihood_model(mean_wp, cov_stoch, cov_jack)
+        logl = self.likelihood(mean_wp, cov_stoch, cov_jack)
 
         if return_blobs:
             blobs = {'logl': logl,
@@ -115,4 +285,3 @@ class PaperModel:
             return logp + logl, blobs
 
         return logp + logl
-

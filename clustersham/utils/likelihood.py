@@ -34,6 +34,7 @@ class BaseLikelihood(ABC):
             Currently implementing a base class is redundant, however it may
             be useful in the future.
     """
+    name = None
 
     @abstractmethod
     def __call__(self, **kwargs):
@@ -61,6 +62,7 @@ class GaussianClusteringLikelihood(BaseLikelihood):
     cov_survey : numpy.ndarray
         Survey 2-point projected correlation function covariance matrix.
     """
+    name = "GaussianClusteringLikelihood"
 
     def __init__(self, wp_survey, cov_survey):
         self._wp_survey = None

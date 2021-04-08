@@ -55,6 +55,7 @@ class AbundanceMatch:
     .. [1] https://bitbucket.org/yymao/abundancematching/
 
     """
+    name = "AbundanceMatch"
 
     def __init__(self, x, phi, ext_range, boxsize, halo_proxy, faint_end_first,
                  scatter_mult, **kwargs):
