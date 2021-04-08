@@ -13,16 +13,20 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import sys
-from joblib import load
+"""Parser to read the config file and generate the (paper) model."""
+
 import numpy
 
+from joblib import load
 import toml
 
+# Later will delete this import
+import sys
 sys.path.append('../')
 
 from clustersham.mocks import (AbundanceMatch, Correlator, proxies)
-from clustersham.utils import GaussianClusteringLikelihood, PaperModel
+from clustersham.utils import (GaussianClusteringLikelihood, PaperModel)
+
 
 class ConfigParser:
     """
@@ -110,9 +114,6 @@ class ConfigParser:
         Check that cuts, rpbins and pimax match. Save the cut range in the
         correlation function file ?
         """
-
-
-
         kwargs = {'AM': self.get_AM(),
                   'correlator': self.get_correlator(),
                   'likelihood': self.get_likelihood(),
