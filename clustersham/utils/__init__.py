@@ -12,6 +12,8 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-"""Make some things top level."""
+
+from .likelihood import GaussianClusteringLikelihood
+
 from ._utils import (load_pickle, dump_pickle, in_hull)
 from .plots import Plots
