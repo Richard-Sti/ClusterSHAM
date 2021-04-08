@@ -54,6 +54,7 @@ class Correlator:
         How many more randoms than data in the jackknife calculation. By
         default 50.
     """
+    name = "Correlator"
 
     def __init__(self, rpbins, pimax, boxsize, subside, Nmult=50):
         # Caching RR pair counts and random state
