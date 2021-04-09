@@ -65,5 +65,6 @@ def main():
     print('Saving..')
     numpy.save('../data/lss_rands.npy', out)
 
+
 if __name__ == '__main__':
     main()
