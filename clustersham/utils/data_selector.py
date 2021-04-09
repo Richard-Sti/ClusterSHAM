@@ -161,7 +161,7 @@ class DataSelector:
             if transform.name not in Little_h.keys():
                 raise ValueError("Invalid little h transform '{}'. Must be "
                                  "selected from `clustersham.utils.Little_h"
-                                 .format(routine.name))
+                                 .format(transform.name))
         self._little_h = {transf.attr: transf for transf in transforms}
 
     def _preselection(self, conditions):
