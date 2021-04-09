@@ -20,10 +20,10 @@ from astropy.io import fits
 import os
 
 
-def get_coords_from_files(folder):
+def get_lss_randoms_from_files(folder):
     """
     Loads files with randoms and produces a single array. See [1] for more
-    details.
+    details. Must start with 'lss_random'.
 
     Parameters
     ----------
@@ -56,14 +56,14 @@ def get_coords_from_files(folder):
 
 def main():
     folder = "../data/randoms/"
-    RA, DEC = get_coords_from_files(folder)
+    RA, DEC = get_lss_randoms_from_files(folder)
     out = numpy.ndarray(RA.size, dtype={'names': ['RA', 'DEC'],
                                         'formats': [float, float]})
     out['RA'] = RA
     out['DEC'] = DEC
 
     print('Saving..')
-    numpy.savez_compressed('../data/rands.npz', out)
+    numpy.save('../data/lss_rands.npy', out)
 
 if __name__ == '__main__':
     main()

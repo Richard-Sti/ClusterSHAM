@@ -51,8 +51,7 @@ class ProjectedCorrelationFunction:
     """
 
     def __init__(self, RA, DEC, Z, randRA, randDEC, randZ, rpbins, pimax,
-                Njack, nthreads)
-
+                 Njack, nthreads):
         self._RA = None
         self._DEC = None
         self._Z = None

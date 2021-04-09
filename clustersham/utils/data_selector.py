@@ -102,7 +102,7 @@ class DataSelector:
             if not isinstance(key, str):
                 raise ValueError("Routine's '{}' key must be a string. "
                                  "Currently {}.".format(routine, key))
-            if routine.name  not in Routines.keys():
+            if routine.name not in Routines.keys():
                 raise ValueError("Invalid routine '{}'. Must be selected "
                                  "from `clustersham.utils.Routines"
                                  .format(routine.name))
@@ -158,7 +158,7 @@ class DataSelector:
             raise ValueError("`little_h` must be a list.")
         # Check that conditions are well-defined
         for transform in transforms:
-            if transform.name  not in Little_h.keys():
+            if transform.name not in Little_h.keys():
                 raise ValueError("Invalid little h transform '{}'. Must be "
                                  "selected from `clustersham.utils.Little_h"
                                  .format(routine.name))
@@ -185,7 +185,7 @@ class DataSelector:
             raise ValueError("`conditions` must be a list.")
         # Check that conditions are well-defined
         for condition in conditions:
-            if condition.name  not in Conditions.keys():
+            if condition.name not in Conditions.keys():
                 raise ValueError("Invalid condition '{}'. Must be selected "
                                  "from `clustersham.utils.Conditions"
                                  .format(condition.name))
