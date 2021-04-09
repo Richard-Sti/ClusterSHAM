@@ -17,24 +17,22 @@ from sys import stdout
 from time import time
 
 import numpy as np
+import Corrfunc
 
 from kmeans_radec import kmeans_sample
 
 from Corrfunc.mocks import DDrppi_mocks
 from Corrfunc.utils import convert_rp_pi_counts_to_wp
 
-from .base import BaseProjectedCorrelationFunction
 
-
-class ProjectedCorrelationFunction(BaseProjectedCorrelationFunction):
+class ProjectedCorrelationFunction:
     r"""A class for calculating the projected two-point correlation function
     on survey data.
 
     Parameters
     ----------
-    data: numpy.ndarray
-        Data object corresponding to the survey bin. Should be returned
-        by ``PySHAM.surveys.base.BaseSurvey.scope_selection``.
+    data : lala
+
     randoms: numpy.ndarray
         A precomputed numpy structured array of randoms matching the survey
         angular geometries. Entires must be ``RA`` and ``DEC``.
@@ -52,10 +50,21 @@ class ProjectedCorrelationFunction(BaseProjectedCorrelationFunction):
         Number of threads.
     """
 
-    def __init__(self, data, randoms, rpbins, pimax, Njack, Nmult, nthreads):
+    def __init__(self, RA, DEC, Z, randRA, randDEC, randZ, rpbins, pimax,
+                 Njack, nthreads):
+        self._RA = None
+        self._DEC = None
+        self._Z = None
+        self._randRA = None
+        self._randDEC = None
+        self._randZ = None
+        self._rpbins = None
+        self._pimax = None
+        self._Njack = None
+        self._nthreads = None
+
         self.Njack = Njack
         self.Nmult = Nmult
-        self.data = data
         self.randoms = randoms
         self.rpbins = rpbins
         self.pimax = pimax
@@ -63,17 +72,14 @@ class ProjectedCorrelationFunction(BaseProjectedCorrelationFunction):
         # setup the jackknifing regions
         self._setup_clusters()
 
-    def _setup_clusters(self):
-        """Splits up the survey into clusters using a k-means algorithm.
+    def _get_clusters(self):
+        """
+        Splits up the survey into clusters using a k-means algorithm.
         By default assigns uniform weights to all points.
         """
-        Ngals = self.data.size
-        Nrands = self.randoms.size
-        print('NGALS', Ngals)
-        print('Nrands', Nrands)
 
-        Xrands = np.vstack([self.randoms['RA'], self.randoms['DEC']]).T
-        Xgals = np.vstack([self.data['RA'], self.data['DEC']]).T
+        Xrands = np.vstack([self.randRA, self.randDEC]).T
+        Xgals = np.vstack([self.RA, self.DEC]).T
 
         mask = np.random.choice(np.arange(Nrands), 3*Ngals, replace=False)
         kmeans = kmeans_sample(Xrands[mask, :], self.Njack, maxiter=250,
