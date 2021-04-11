@@ -167,8 +167,8 @@ class Correlator:
         self._cache.clear()
         self._random_state = None
 
-    def mock_wp(self, x, y, z, nthreads=1):
-        """
+    def mock_wp(self, x, y, z, return_rpavg=False, nthreads=1):
+        r"""
         Calculates the 2-point correlation function in a simulation box.
         Calls `Corrfunc.theory.wp`. The output is in whatever units the
         galaxy positions are given.
@@ -183,18 +183,29 @@ class Correlator:
             Galaxy positions along the z-axis.
         nthreads : int, optional
             Number of threads. By default 1.
+        return_rpavg : bool, optional
+            Whether to return the mean :math:`r_p` bin separation. By default
+            `False`.
 
         Returns
         -------
-        result : numpy.ndarray
+        wp : numpy.ndarray
             2-point correlation function in bins `self.rpbins`.
+        rpavg : numpy.ndarray
+            Average bin separation. Returned if `return_rpavg`.
         """
-        return Corrfunc.theory.wp(boxsize=self.boxsize, pimax=self.pimax,
-                                  nthreads=nthreads, binfile=self.rpbins,
-                                  X=x, Y=y, Z=z, output_rpavg=True)['wp']
+        result = Corrfunc.theory.wp(boxsize=self.boxsize, pimax=self.pimax,
+                                    nthreads=nthreads, binfile=self.rpbins,
+                                    X=x, Y=y, Z=z, output_rpavg=return_rpavg)
+        if return_rpavg:
+            return result['wp'], result['rpavg']
+        return result['wp']
 
-    def _count_pairs(self, x1, y1, z1, x2=None, y2=None, z2=None, nthreads=1):
-        """
+
+
+    def _count_pairs(self, x1, y1, z1, x2=None, y2=None, z2=None,
+                     return_rpavg=False, nthreads=1):
+        r"""
         Counts 3D galaxy pairs in a simulation box. If `x2`, or `y2`, or `z2`
         are given turns performs cross-correlation between 1 and 2.
         Calls `Corrfunc.theory.DDrppi`.
@@ -213,6 +224,9 @@ class Correlator:
             Galaxy (or random) positions along the y-axis.
         z2 : numpy.ndarray
             Galaxy (or random) positions along the z-axis.
+        return_rpavg : bool, optional
+            Whether to return the mean :math:`r_p` bin separation. By default
+            `False`.
         nthreads : int, optional
             Number of threads. By default 1.
 
@@ -228,7 +242,8 @@ class Correlator:
         return Corrfunc.theory.DDrppi(autocorr, nthreads=nthreads,
                                       pimax=self.pimax, binfile=self.rpbins,
                                       X1=x1, Y1=y1, Z1=z1, X2=x2, Y2=y2,
-                                      Z2=z2, periodic=False)
+                                      Z2=z2, periodic=False,
+                                      output_rpavg=return_rpavg)
 
     def _get_randoms(self, N):
         """
@@ -335,8 +350,7 @@ class Correlator:
             Galaxy positions `1` along the z-axis.
         bins1 : numpy.ndarray
             Bin indices of set `1`.
-        x2 : numpy.ndarray, optional
-            Galaxy positions `2` along the x-axis.
+        x2 : numpy.ndarray, optional Galaxy positions `2` along the x-axis.
         y2 : numpy.ndarray, optional
             Galaxy positions `2` along the y-axis.
         z2 : numpy.ndarray, optional
@@ -365,7 +379,7 @@ class Correlator:
                                      x2[nearby_mask], y2[nearby_mask],
                                      z2[nearby_mask], nthreads=nthreads)
 
-    def mock_jackknife_cov(self, x, y, z, return_wp=False, nthreads=1):
+    def mock_jackknife_cov(self, x, y, z, return_rpavg=False, nthreads=1):
         """
         Calculates the jackknife covariance error on a mock galaxy catalogue.
         In the first step, both data and random pairs are counted in the whole
@@ -386,9 +400,9 @@ class Correlator:
             Galaxy positions along the z-axis.
         nthreads : int, optional
             Number of threads. By default 1.
-        return_wp : bool, optional
-            Whether to return the mean 2-point correlation function.
-            By default False, not returned.
+        return_rpavg : bool, optional
+            Whether to return the mean :math:`r_p` bin separation. By default
+            `False`.
 
         Returns
         -------
@@ -397,7 +411,8 @@ class Correlator:
             `self.Nrpbins`).
         wp : numpy.ndarray
             2-point correlation function of shape (`self.Nrpbins`, ).
-            Returned if `return_wp`.
+        rpavg : numpy.ndarray
+            Average bin separation. Returned if `return_rpavg`.
         """
         Nd = x.size
         Nr = Nd * self.Nmult
@@ -419,7 +434,8 @@ class Correlator:
             RRbox = self._count_pairs(xrand, yrand, zrand, nthreads=nthreads)
             self._cache.update({'RRbox': RRbox})
 
-        DDbox = self._count_pairs(x, y, z, nthreads=nthreads)
+        DDbox = self._count_pairs(x, y, z, nthreads=nthreads,
+                                  return_rpavg=return_rpavg)
         DRbox = self._count_pairs(x, y, z, xrand, yrand, zrand,
                                   nthreads=nthreads)
 
@@ -484,12 +500,20 @@ class Correlator:
             wps[i, :] = Corrfunc.utils.convert_rp_pi_counts_to_wp(
                     Nd_jack, Nd_jack, Nr_jack, Nr_jack, DD_jack, DR_jack,
                     RD_jack, RR_jack, nrpbins=self._Nrpbins, pimax=self.pimax)
+
+
         # The jackknife covariance matrix
         cov = numpy.cov(wps, rowvar=False, bias=True) * (self._Nsubs**2 - 1)
-        if return_wp:
-            wp = numpy.mean(wps, axis=0)
-            return cov, wp
-        return cov
+        wp = numpy.mean(wps, axis=0)
+        if return_rpavg:
+            rpavg = numpy.zeros(self._Nrpbins)
+            for i, rmin in enumerate(numpy.unique(DDbox['rmin'])):
+                mask = DDbox['rmin'] == rmin
+                rpavg[i] = numpy.average(DDbox['rpavg'][mask],
+                                         weights=DDbox['npairs'][mask])
+
+            return cov, wp, rpavg
+        return cov, wp
 
     @staticmethod
     def _subtract_counts(box_counts, subbox_counts, nearby_counts):
