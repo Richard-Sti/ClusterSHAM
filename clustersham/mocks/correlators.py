@@ -75,7 +75,7 @@ class Correlator:
         self.pimax = pimax
         self.Nmult = Nmult
         # Number of jackknifes grids
-        self._Nsubs= int(self.boxsize / self.subside)
+        self._Nsubs = int(self.boxsize / self.subside)
 
     @property
     def rpbins(self):
@@ -362,8 +362,8 @@ class Correlator:
         else:
             nearby_mask = numpy.isin(bins2, nearby_bins)
             return self._count_pairs(x1[box_mask], y1[box_mask], z1[box_mask],
-                                    x2[nearby_mask], y2[nearby_mask],
-                                    z2[nearby_mask], nthreads=nthreads)
+                                     x2[nearby_mask], y2[nearby_mask],
+                                     z2[nearby_mask], nthreads=nthreads)
 
     def mock_jackknife_cov(self, x, y, z, return_wp=False, nthreads=1):
         """
@@ -467,7 +467,8 @@ class Correlator:
             try:
                 RRacross = self._cache['RRacross_{}'.format(i)]
             except KeyError:
-                RRacross = self._pairs_across(i, xrand, yrand, zrand, bins_rand)
+                RRacross = self._pairs_across(i, xrand, yrand, zrand,
+                                              bins_rand)
                 self._cache.update({'RRacross_{}'.format(i): RRacross})
 
             # Ugly but unnecessary to wrap this in another function
