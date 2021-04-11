@@ -17,6 +17,7 @@
 
 import numpy
 import toml
+from joblib import load
 
 # Later will delete this import
 import sys

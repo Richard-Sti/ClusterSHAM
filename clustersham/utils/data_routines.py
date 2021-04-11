@@ -29,7 +29,8 @@ class BaseRoutine(ABC):
     The base class ensures that every routine and condition is callable.
     """
 
-    def _check_attr(self, attr):
+    @staticmethod
+    def _check_attr(attr):
         """
         Checks that `attr` is a string.
 

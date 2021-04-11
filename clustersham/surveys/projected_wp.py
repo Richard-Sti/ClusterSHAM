@@ -482,7 +482,7 @@ class Projected2PointCorrelation:
             Nd = mask_data.sum()
             Nr = mask_rand.sum()
 
-            wps[i, :] = Corrfunc.utils.convert_rp_pi_counts_to_wp(
+            wp = Corrfunc.utils.convert_rp_pi_counts_to_wp(
                     ND1=Nd, ND2=Nd, NR1=Nr, NR2=Nr, D1D2=DD, D1R2=DR, D2R1=DR,
                     R1R2=RR, pimax=self.pimax, nrpbins=self.rpbins.size - 1)
             if numpy.any(numpy.isnan(wp)):
@@ -490,6 +490,7 @@ class Projected2PointCorrelation:
                                  "lowest separation bins contain no pairs. "
                                  "Consider changing the binning or increasing "
                                  "the number of randoms".format(wp))
+            wps[i, :] = wp
 
             # Time keeper, estimates remaining time
             if verbose:
