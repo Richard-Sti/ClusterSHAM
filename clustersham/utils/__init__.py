@@ -21,7 +21,8 @@ from .plots import Plots
 from .paper_model import PaperModel
 
 from .data_routines import (LogRoutine, ApparentMagnitudeRoutine,
-                            FiniteCondition, RangeCondition, IsEqualCondition,
+                            ComovingDistanceRoutine, FiniteCondition,
+                            RangeCondition, IsEqualCondition,
                             LuminosityLogMassConvertor,
                             AbsoluteMagnitudeConvertor, Routines, Conditions,
                             Little_h)

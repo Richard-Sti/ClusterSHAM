@@ -153,6 +153,40 @@ class ApparentMagnitudeRoutine(BaseRoutine):
         return appmag
 
 
+class ComovingDistanceRoutine(BaseRoutine):
+    """
+    Routine to calculate the comoving distance from redshift.
+
+    Parameters
+    ----------
+    redshift : str
+        Selector's redshift attribute.
+    cosmo : `astropy.cosmology` object
+        Cosmology of choice.
+    """
+    name = 'comoving_distance_routine'
+
+    def __init__(self, redshift, cosmo):
+        self.redshift = self._check_attr(redshift)
+        self.cosmo = cosmo
+
+    def __call__(self, selector):
+        """
+        Returns the comoving distance corresponding to selector's redshift.
+
+        Parameters
+        ----------
+        selector : `clustersham.utils.DataSelector` object
+            An object from which to access survey properties.
+
+        Returns
+        -------
+        comoving_dist : numpy.ndarray
+            Comoving distance in Mpc.
+        """
+        return self.cosmo.comoving_distance(selector[self.redshift]).value
+
+
 #
 # =============================================================================
 #
@@ -390,7 +424,8 @@ class AbsoluteMagnitudeConvertor:
 
 # Dictionary with routine names
 Routines = {LogRoutine.name: LogRoutine,
-            ApparentMagnitudeRoutine.name: ApparentMagnitudeRoutine}
+            ApparentMagnitudeRoutine.name: ApparentMagnitudeRoutine,
+            ComovingDistanceRoutine.name: ComovingDistanceRoutine}
 
 
 Conditions = {FiniteCondition.name: FiniteCondition,
