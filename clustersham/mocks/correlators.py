@@ -191,7 +191,7 @@ class Correlator:
         """
         return Corrfunc.theory.wp(boxsize=self.boxsize, pimax=self.pimax,
                                   nthreads=nthreads, binfile=self.rpbins,
-                                  X=x, Y=y, Z=z)['wp']
+                                  X=x, Y=y, Z=z, output_rpavg=True)['wp']
 
     def _count_pairs(self, x1, y1, z1, x2=None, y2=None, z2=None, nthreads=1):
         """
@@ -228,7 +228,7 @@ class Correlator:
         return Corrfunc.theory.DDrppi(autocorr, nthreads=nthreads,
                                       pimax=self.pimax, binfile=self.rpbins,
                                       X1=x1, Y1=y1, Z1=z1, X2=x2, Y2=y2,
-                                      Z2=z2, periodic=False)
+                                      Z2=z2, periodic=False, output_rpavg=True)
 
     def _get_randoms(self, N):
         """
@@ -375,9 +375,9 @@ class Correlator:
             # Ugly but unnecessary to wrap this in another function
             Nd_jack = Nd - data_mask.sum()
             Nr_jack = Nr - rand_mask.sum()
-            DD_jack = self._substract_counts(DDbox, DDsubbox)
-            DR_jack = self._substract_counts(DRbox, DRsubbox)
-            RR_jack = self._substract_counts(RRbox, RRsubbox)
+            DD_jack = self._subtract_counts(DDbox, DDsubbox)
+            DR_jack = self._subtract_counts(DRbox, DRsubbox)
+            RR_jack = self._subtract_counts(RRbox, RRsubbox)
 
             wps[i, :] = Corrfunc.utils.convert_rp_pi_counts_to_wp(
                     Nd_jack, Nd_jack, Nr_jack, Nr_jack, DD_jack, DR_jack,
@@ -391,9 +391,9 @@ class Correlator:
         return cov
 
     @staticmethod
-    def _substract_counts(box_counts, subbox_counts):
+    def _subtract_counts(box_counts, subbox_counts):
         """
-        Substracts the number of pairs in `subbox_counts` from  `box_counts`.
+        Subtracts the number of pairs in `subbox_counts` from  `box_counts`.
 
         Parameters
         ----------
