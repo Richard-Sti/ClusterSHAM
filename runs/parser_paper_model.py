@@ -53,7 +53,7 @@ class PaperModelConfigParser:
             raise ValueError("Either 'MFpath' or 'LFpath' must be specified.")
         if MFpath is not None and LFpath is not None:
             raise ValueError("'MFpath' and 'LFpath' given simultaneously.")
-        # Load either the LF or MF
+        # Loadmeither the LF or MF
         if MFpath is None:
             nd = numpy.load(LFpath)
             faint_end_first = False

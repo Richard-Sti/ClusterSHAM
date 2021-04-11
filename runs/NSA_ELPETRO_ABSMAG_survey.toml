@@ -1,0 +1,97 @@
+[Main]
+path = "../data/surveys/nsa_v1.fits"
+randoms_path = "../data/randoms/lss_rands.npy"
+result = "../results/"
+Nmult = 3
+
+
+
+#=============================================================================#
+[Conditions]
+
+[Conditions.finite_condition_x_0]
+attr = 'ELPETRO_ABSMAG'
+
+[Conditions.range_condition_x_0]
+attr = 'RA'
+ext_range = [100, 270]
+
+[Conditions.is_equal_condition]
+attr = 'IN_DR7_LSS'
+value = true
+
+[Conditions.range_condition_x_1]
+attr = 'ELPETRO_APPMAG'
+ext_range = [-1000.0, 17.6]
+
+[Conditions.range_condition_x_2]
+attr = 'ELPETRO_ABSMAG'
+ext_range = [-22.5, -22.0]
+
+
+#=============================================================================#
+[Routines]
+
+[Routines.ELPETRO_LOG_MASS]
+kind = 'log_routine'
+attr = 'ELPETRO_MASS'
+
+[Routines.ELPETRO_APPMAG]
+kind = 'apparent_magnitude_routine'
+redshift = 'ZDIST'
+absmag = 'ELPETRO_ABSMAG'
+Kcorr = 'ELPETRO_KCORRECT'
+
+[Routines.ELPETRO_APPMAG.cosmo]
+kind = 'FlatLambdaCDM'
+H0 = 100
+Om0 = 0.295
+
+
+#=============================================================================#
+[Indices]
+
+[Indices.ELPETRO_ABSMAG]
+column = 4
+
+[Indices.ELPETRO_KCORRECT]
+column = 4
+
+#=============================================================================#
+[Little_h]
+
+[Little_h.luminosity_log_mass_little_h]
+attr = 'ELPETRO_LOG_MASS'
+
+[Little_h.luminosity_log_mass_little_h.cosmo_data]
+kind = 'FlatLambdaCDM'
+H0 = 100
+Om0 = 0.295
+
+[Little_h.luminosity_log_mass_little_h.cosmo_out]
+kind = 'FlatLambdaCDM'
+H0 = 68.8
+Om0 = 0.295
+
+
+
+[Little_h.absolute_magnitude_little_h]
+attr = 'ELPETRO_ABSMAG'
+
+[Little_h.absolute_magnitude_little_h.cosmo_data]
+kind = 'FlatLambdaCDM'
+H0 = 100
+Om0 = 0.295
+
+[Little_h.absolute_magnitude_little_h.cosmo_out]
+kind = 'FlatLambdaCDM'
+H0 = 68.8
+Om0 = 0.295
+
+#=============================================================================#
+[Correlator]
+rpmin = 1
+rpmax = 15
+nrpbins = 12
+pimax = 15
+Njack = 50
