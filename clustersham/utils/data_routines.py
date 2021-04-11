@@ -101,6 +101,7 @@ class LogRoutine(BaseRoutine):
         """
         return numpy.log10(selector[self.attr])
 
+
 class ApparentMagnitudeRoutine(BaseRoutine):
     """
     Routine to calculate the apparent magnitude from redshift and absolute
@@ -154,7 +155,7 @@ class ApparentMagnitudeRoutine(BaseRoutine):
 #
 # =============================================================================
 #
-#                               Conditions 
+#                               Conditions
 #
 # =============================================================================
 #
@@ -294,7 +295,7 @@ class IsEqualCondition(BaseRoutine):
 #
 # =============================================================================
 #
-#                           Little h convertors 
+#                           Little h convertors
 #
 # =============================================================================
 #

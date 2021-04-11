@@ -148,8 +148,8 @@ class Projected2PointCorrelation:
         elif Npoints > RA.size:
             raise ValueError("`Npoints` > number of data (or randoms).")
         else:
-            arange = numpy.arange(RA.size)
-            indx = numpy.random.choice(arange, RA.size - Npoints, replace=False)
+            indx = numpy.random.choice(RA.size, RA.size - Npoints,
+                                       replace=False)
             mask[indx] = False
 
         X = numpy.vstack([RA[mask], DEC[mask]]).T
@@ -181,7 +181,7 @@ class Projected2PointCorrelation:
         return kmeans.find_nearest(X)
 
     def _count_pairs(self, RA1, DEC1, Z1, RA2=None, DEC2=None, Z2=None,
-                      cosmology=2, nthreads=1):
+                     cosmology=2, nthreads=1):
         r"""
         Counts 2D pair counts for the projected correlation function. If
         `RA2`, `DEC2`, and `Z2` are provided calculates cross-correlation
@@ -302,7 +302,8 @@ class Projected2PointCorrelation:
         rpavg = numpy.zeros(self.rpbins.size - 1)
         for i, rmin in enumerate(numpy.unique(DD['rmin'])):
             mask = DD['rmin'] == rmin
-            rpavg[i] = numpy.average(DD['rpavg'][mask], weights=DD['npairs'][mask])
+            rpavg[i] = numpy.average(DD['rpavg'][mask],
+                                     weights=DD['npairs'][mask])
         return rpavg
 
     def survey_wp(self, RA, DEC, Z, randRA, randDEC, cosmology=2,
@@ -381,7 +382,8 @@ class Projected2PointCorrelation:
                 'rpbins': self.rpbins}
 
     def survey_jackknife(self, RA, DEC, Z, randRA, randDEC, cosmology=2,
-                         nthreads=1, verbose=True, Npoints_kmeans=None, seed=42):
+                         nthreads=1, verbose=True, Npoints_kmeans=None,
+                         seed=42):
         r"""
         Calculates the survey correlation function covariance matrix using
         the Landy-Szalay estimator, splits the survey into `self.Njack` angular

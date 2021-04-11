@@ -191,7 +191,7 @@ class Correlator:
         """
         return Corrfunc.theory.wp(boxsize=self.boxsize, pimax=self.pimax,
                                   nthreads=nthreads, binfile=self.rpbins,
-                                  X=x, Y=y, Z=z, output_rpavg=True)#['wp']
+                                  X=x, Y=y, Z=z, output_rpavg=True)['wp']
 
     def _count_pairs(self, x1, y1, z1, x2=None, y2=None, z2=None, nthreads=1):
         """
