@@ -21,7 +21,6 @@ from parser_wp import Projected2PointCorrelationParser
 from parser_survey import SurveyConfigParser
 
 
-
 def get_randoms(path, N):
     """
     Loads `N` random RA-dec points from file `path`. This file must respect

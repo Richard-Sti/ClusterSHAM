@@ -33,6 +33,7 @@ from astropy.cosmology import FlatLambdaCDM
 
 Cosmologies = {'FlatLambdaCDM': FlatLambdaCDM}
 
+
 class SurveyConfigParser:
     """
     Parses the survey config file. Returns `clustersham.utils.DataSelector`.
@@ -56,7 +57,7 @@ class SurveyConfigParser:
         """
         # If not condition is specified exit
         N = len(self.cnf['Conditions'])
-        if  N == 0:
+        if N == 0:
             return None
         # Load the individual conditions, '_x_' is used as delimiter to
         # distinguish multiple conditions of the same type
@@ -93,7 +94,7 @@ class SurveyConfigParser:
         """
         # Exit if no routine
         N = len(self.cnf['Routines'])
-        if  N == 0:
+        if N == 0:
             return None
         # Go over the routines
         routines = {}
@@ -113,7 +114,6 @@ class SurveyConfigParser:
             routines.update({routine_attr: routine})
         return routines
 
-
     def get_cosmology(self, kwargs):
         """
         A special parser for Astropy's cosmology objects as this is required
@@ -132,7 +132,7 @@ class SurveyConfigParser:
         """
         # Exit gracefully if no little h transform
         N = len(self.cnf['Little_h'])
-        if  N == 0:
+        if N == 0:
             return None
 
         transforms = [None] * N

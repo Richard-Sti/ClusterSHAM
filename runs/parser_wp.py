@@ -23,6 +23,7 @@ sys.path.append('../')
 
 from clustersham.surveys import Projected2PointCorrelation
 
+
 class Projected2PointCorrelationParser:
     """
     A parser for `clustersham.surveys.Projected2PointCorrelation`.
