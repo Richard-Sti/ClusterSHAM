@@ -219,7 +219,7 @@ class PaperModel:
             if i == 0:
                 cov_jack, wp = self.correlator.mock_jackknife_cov(
                         halos['x'][mask], halos['y'][mask], halos['z'][mask],
-                        return_wp=True)
+                        return_rpavg=False)
             else:
                 wp = self.correlator.mock_wp(
                         halos['x'][mask], halos['y'][mask], halos['z'][mask])
