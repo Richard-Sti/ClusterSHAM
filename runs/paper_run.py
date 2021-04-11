@@ -16,8 +16,6 @@
 """Parser to read the config file and generate the (paper) model."""
 
 import numpy
-
-from joblib import load
 import toml
 
 # Later will delete this import
@@ -28,9 +26,10 @@ from clustersham.mocks import (AbundanceMatch, Correlator, proxies)
 from clustersham.utils import (GaussianClusteringLikelihood, PaperModel)
 
 
-class ConfigParser:
+class PaperModelConfigParser:
     """
-    Parses config file, returns initialised `clustersham.utils.PaperModel`
+    Parses the mpaper model config file, returns initialised
+    `clustersham.utils.PaperModel`.
 
     Parameters
     ----------
@@ -128,7 +127,7 @@ class ConfigParser:
 def main():
     # TO DO:
     #   - import argparse here to specify the path
-    parser = ConfigParser('config.toml')
+    parser = PaperModelConfigParser('config.toml')
     model = parser()
     print(model)
 
