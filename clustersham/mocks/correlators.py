@@ -74,8 +74,8 @@ class Correlator:
         self.subside = subside
         self.pimax = pimax
         self.Nmult = Nmult
-        # Number of jackknifes
-        self._Nsubs= int(self.boxsize / self.subside)**2
+        # Number of jackknifes grids
+        self._Nsubs= int(self.boxsize / self.subside)
 
     @property
     def rpbins(self):
@@ -228,7 +228,7 @@ class Correlator:
         return Corrfunc.theory.DDrppi(autocorr, nthreads=nthreads,
                                       pimax=self.pimax, binfile=self.rpbins,
                                       X1=x1, Y1=y1, Z1=z1, X2=x2, Y2=y2,
-                                      Z2=z2, periodic=False, output_rpavg=True)
+                                      Z2=z2, periodic=False)
 
     def _get_randoms(self, N):
         """
@@ -280,18 +280,99 @@ class Correlator:
         bins : numpy.ndarray
             Each point's bin.
         """
-        edges = numpy.arange(0, self.boxsize + self.subside, self.subside)
-        bins = (numpy.digitize(y, edges) - 1) * (edges.size - 1)
+        edges = numpy.arange(0, self.boxsize, self.subside)
+        bins = (numpy.digitize(y, edges) - 1) * self._Nsubs
         bins += numpy.digitize(x, edges) - 1
         return bins
+
+    def nearby_bins(self, i):
+        """
+        Returns indices of neighbouring bins in the x-y plane.
+
+        Parameters
+        ----------
+        i : int
+            Central's bin index.
+
+        Returns
+        -------
+        indices : numpy.ndarray
+            Array of nearby bin indices. At most 8 neighbours.
+        """
+        # Wrap the 1D index on a 2D grid
+        ix = i % self._Nsubs
+        iy = i // self._Nsubs
+        neighbours = numpy.array([[ix+1, iy],
+                                  [ix-1, iy],
+                                  [ix, iy+1],
+                                  [ix, iy-1],
+                                  [ix+1, iy+1],
+                                  [ix+1, iy-1],
+                                  [ix-1, iy-1],
+                                  [ix-1, iy+1]])
+        mask = numpy.logical_and(neighbours >= 0, neighbours < self._Nsubs)
+        mask = numpy.logical_and(mask[:, 0], mask[:, 1])
+        bins = neighbours[mask]
+        return bins[:, 1] * self._Nsubs + bins[:, 0]
+
+    def _pairs_across(self, ibin, x1, y1, z1, bins1, x2=None, y2=None, z2=None,
+                      bins2=None, nthreads=1):
+        """
+        Calculates pair-counts between points in the central bin and in the
+        neighbouring bins. Central box points will be selected from set `1`
+        and neighbouring points will be selected from set `2`.
+
+        If only set `1` is provided calculates pairs between points `1` in the
+        central box and points `1` in the neighbouring bins.
+
+        Parameters
+        ----------
+        x1 : numpy.ndarray
+            Galaxy positions `1` along the x-axis.
+        y1 : numpy.ndarray
+            Galaxy positions `1` along the y-axis.
+        z1 : numpy.ndarray
+            Galaxy positions `1` along the z-axis.
+        bins1 : numpy.ndarray
+            Bin indices of set `1`.
+        x2 : numpy.ndarray, optional
+            Galaxy positions `2` along the x-axis.
+        y2 : numpy.ndarray, optional
+            Galaxy positions `2` along the y-axis.
+        z2 : numpy.ndarray, optional
+            Galaxy positions `2` along the z-axis.
+        bins1 : numpy.ndarray, optional
+            Bin indices of set `2`.
+        nthreads : int, optional
+            Number of threads. By default 1.
+
+        Returns
+        -------
+        pair_counts : numpy.ndarray
+            Pair counts as returned by `Corrfunc.theory.DDrppi`.
+        """
+        nearby_bins = self.nearby_bins(ibin)
+        box_mask = bins1 == ibin
+
+        if x2 is None or y2 is None or z2 is None:
+            nearby_mask = numpy.isin(bins1, nearby_bins)
+            return self._count_pairs(x1[box_mask], y1[box_mask], z1[box_mask],
+                                     x1[nearby_mask], y1[nearby_mask],
+                                     z1[nearby_mask], nthreads=nthreads)
+        else:
+            nearby_mask = numpy.isin(bins2, nearby_bins)
+            return self._count_pairs(x1[box_mask], y1[box_mask], z1[box_mask],
+                                    x2[nearby_mask], y2[nearby_mask],
+                                    z2[nearby_mask], nthreads=nthreads)
 
     def mock_jackknife_cov(self, x, y, z, return_wp=False, nthreads=1):
         """
         Calculates the jackknife covariance error on a mock galaxy catalogue.
         In the first step, both data and random pairs are counted in the whole
         simulation box. In the second step, pairs are counted in each
-        subvolume. The i-th jackknife 2-point correlation function is obtained
-        by substracting the i-th subvolume pairs from the box pairs.
+        subvolume. Lastly, pairs crossing the central bin are counted. The i-th
+        jackknife 2-point correlation function is obtained by subtracting the
+        i-th subvolume pairs from the box pairs.
 
         Caches RR pair results when first called.
 
@@ -343,7 +424,7 @@ class Correlator:
                                   nthreads=nthreads)
 
         # Used to store the jackknife 2point functions
-        wps = numpy.zeros(shape=(self._Nsubs, self._Nrpbins))
+        wps = numpy.zeros(shape=(self._Nsubs**2, self._Nrpbins))
 
         # Count pairs in each subvolume and substract from the box
         # statistics to obtain jackknifed 2-point correlator estimate
@@ -354,10 +435,10 @@ class Correlator:
             bins_rand = self._bin_points(xrand, yrand)
             self._cache.update({'bins_rand': bins_rand})
 
-        for i in range(self._Nsubs):
+        for i in range(self._Nsubs**2):
             data_mask = bins_data == i
             rand_mask = bins_rand == i
-
+            # RR pairs inside the subbox. Cache it!
             try:
                 RRsubbox = self._cache['RRsubbox_{}'.format(i)]
             except KeyError:
@@ -365,41 +446,63 @@ class Correlator:
                         xrand[rand_mask], yrand[rand_mask], zrand[rand_mask],
                         nthreads=nthreads)
                 self._cache.update({'RRsubbox_{}'.format(i): RRsubbox})
-
+            # Get DD and DR pairs inside the subbox
             DDsubbox = self._count_pairs(x[data_mask], y[data_mask],
                                          z[data_mask], nthreads=nthreads)
             DRsubbox = self._count_pairs(
                     x[data_mask], y[data_mask], z[data_mask],
                     xrand[rand_mask], yrand[rand_mask], zrand[rand_mask],
                     nthreads=nthreads)
+            # DD pairs crossing the subvolume
+            DDacross = self._pairs_across(i, x, y, z, bins_data,
+                                          nthreads=nthreads)
+            # DR and RD pairs crossing the subvolume. The two differ!
+            DRacross = self._pairs_across(i, x, y, z, bins_data,
+                                          xrand, yrand, zrand, bins_rand,
+                                          nthreads=nthreads)
+            RDacross = self._pairs_across(i, xrand, yrand, zrand, bins_rand,
+                                          x, y, z, bins_data,
+                                          nthreads=nthreads)
+            # RR pairs crossing the subvolume. Cache it!
+            try:
+                RRacross = self._cache['RRacross_{}'.format(i)]
+            except KeyError:
+                RRacross = self._pairs_across(i, xrand, yrand, zrand, bins_rand)
+                self._cache.update({'RRacross_{}'.format(i): RRacross})
+
             # Ugly but unnecessary to wrap this in another function
             Nd_jack = Nd - data_mask.sum()
             Nr_jack = Nr - rand_mask.sum()
-            DD_jack = self._subtract_counts(DDbox, DDsubbox)
-            DR_jack = self._subtract_counts(DRbox, DRsubbox)
-            RR_jack = self._subtract_counts(RRbox, RRsubbox)
+            DD_jack = self._subtract_counts(DDbox, DDsubbox, DDacross)
+            DR_jack = self._subtract_counts(DRbox, DRsubbox, DRacross)
+
+            RD_jack = self._subtract_counts(DRbox, DRsubbox, RDacross)
+
+            RR_jack = self._subtract_counts(RRbox, RRsubbox, RRacross)
 
             wps[i, :] = Corrfunc.utils.convert_rp_pi_counts_to_wp(
                     Nd_jack, Nd_jack, Nr_jack, Nr_jack, DD_jack, DR_jack,
-                    DR_jack, RR_jack, nrpbins=self._Nrpbins, pimax=self.pimax)
-
+                    RD_jack, RR_jack, nrpbins=self._Nrpbins, pimax=self.pimax)
         # The jackknife covariance matrix
-        cov = numpy.cov(wps, rowvar=False, bias=True) * (self._Nsubs - 1)
+        cov = numpy.cov(wps, rowvar=False, bias=True) * (self._Nsubs**2 - 1)
         if return_wp:
             wp = numpy.mean(wps, axis=0)
             return cov, wp
         return cov
 
     @staticmethod
-    def _subtract_counts(box_counts, subbox_counts):
+    def _subtract_counts(box_counts, subbox_counts, nearby_counts):
         """
-        Subtracts the number of pairs in `subbox_counts` from  `box_counts`.
+        Subtracts the number of pairs in `subbox_counts` and `nearby_counts`
+        from  `box_counts`.
 
         Parameters
         ----------
         box_counts : numpy.ndarray
             Pair counts from `Corrfunc.theory.DDrppi`.
         subbox_counts : numpy.ndarray
+            Pair counts from `Corrfunc.theory.DDrppi`.
+        nearby_counts: numpy.ndarray
             Pair counts from `Corrfunc.theory.DDrppi`.
 
         Returns
@@ -408,5 +511,5 @@ class Correlator:
             Difference of pair counts.
         """
         result = numpy.copy(box_counts)
-        result['npairs'] -= subbox_counts['npairs']
+        result['npairs'] -= (subbox_counts['npairs'] + nearby_counts['npairs'])
         return result
