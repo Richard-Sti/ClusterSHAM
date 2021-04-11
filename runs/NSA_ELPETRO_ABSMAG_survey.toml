@@ -1,8 +1,8 @@
 [Main]
 path = "../data/surveys/nsa_v1.fits"
-randoms_path = "../data/randoms/lss_rands.npy"
-result = "../results/"
-Nmult = 3
+randoms_path = "../data/randoms/NSA_randoms.npy"
+out_folder = "../results/NSA/"
+Nmult = 10
 
 
 
@@ -24,9 +24,18 @@ value = true
 attr = 'ELPETRO_APPMAG'
 ext_range = [-1000.0, 17.6]
 
-[Conditions.range_condition_x_2]
+# Use _SUB_ delimiter to denote different subsamples
+[Conditions.range_condition_SUB_N1]
 attr = 'ELPETRO_ABSMAG'
 ext_range = [-22.5, -22.0]
+
+[Conditions.range_condition_SUB_N2]
+attr = 'ELPETRO_ABSMAG'
+ext_range = [-22.0, -21.0]
+
+[Conditions.range_condition_SUB_N3]
+attr = 'ELPETRO_ABSMAG'
+ext_range = [-22.0, -20.0]
 
 
 #=============================================================================#
@@ -43,6 +52,15 @@ absmag = 'ELPETRO_ABSMAG'
 Kcorr = 'ELPETRO_KCORRECT'
 
 [Routines.ELPETRO_APPMAG.cosmo]
+kind = 'FlatLambdaCDM'
+H0 = 100
+Om0 = 0.295
+
+[Routines.COMOVING_DIST]
+kind = 'comoving_distance_routine'
+redshift = 'ZDIST'
+
+[Routines.COMOVING_DIST.cosmo]
 kind = 'FlatLambdaCDM'
 H0 = 100
 Om0 = 0.295
@@ -90,8 +108,8 @@ Om0 = 0.295
 
 #=============================================================================#
 [Correlator]
-rpmin = 1
-rpmax = 15
+rpmin = 0.1
+rpmax = 25
 nrpbins = 12
-pimax = 15
-Njack = 50
+pimax = 60
+Njack = 10

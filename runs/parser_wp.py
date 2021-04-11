@@ -13,6 +13,8 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+"""Parser for Projected2PointCorrelation."""
+
 import numpy
 import toml
 
@@ -22,29 +24,31 @@ sys.path.append('../')
 from clustersham.surveys import Projected2PointCorrelation
 
 class Projected2PointCorrelationParser:
+    """
+    A parser for `clustersham.surveys.Projected2PointCorrelation`.
+
+    Parameters
+    ----------
+        config_path : str
+            Path to the toml config file.
+    """
 
     def __init__(self, config_path):
         self.cnf = toml.load(config_path)
 
-
-
     def __call__(self):
-        # Get rpbins
+        r"""
+        Gets the log-spaced :math:`r_p` bins and returns
+        `clustersham.utils.Projected2PointCorrelation`.
+        """
         pars = ['rpmin', 'rpmax', 'nrpbins']
         args = [self.cnf['Correlator'].pop(key, None) for key in pars]
         for i, arg in enumerate(args):
             if arg is None:
-                raise ValueError("'{}' must be specified in 'Correlato''"
+                raise ValueError("'{}' must be specified in 'Correlator'"
                                  .format(pars[i]))
         rpbins = numpy.logspace(numpy.log10(args[0]), numpy.log10(args[1]),
                                 args[2] + 1)
         kwargs = self.cnf['Correlator']
         kwargs.update({'rpbins': rpbins})
         return Projected2PointCorrelation(**kwargs)
-
-if __name__ == '__main__':
-    parser = Projected2PointCorrelationParser('NSAconfig.toml')
-    model = parser()
-    print(model)
-    print(model.rpbins)
-

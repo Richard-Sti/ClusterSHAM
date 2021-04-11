@@ -85,17 +85,10 @@ class PaperModelConfigParser:
         Initialises `clustersham.mocks.Correlator` from the config file.
         """
         # Get rpbins
-        pars = ['rpmin', 'rpmax', 'nrpbins']
-        args = [self.cnf['Correlator'].pop(key, None) for key in pars]
-        for i, arg in enumerate(args):
-            if arg is None:
-                raise ValueError("'{}' must be specified in 'Correlato''"
-                                 .format(pars[i]))
-        rpbins = numpy.logspace(numpy.log10(args[0]), numpy.log10(args[1]),
-                                args[2] + 1)
-        # And the remainder of the kwargs
+        CF = load(self.cnf['Main']['survey_path'])
         kwargs = self.cnf['Correlator']
-        kwargs.update({'rpbins': rpbins,
+        kwargs.update({'rpbins': CF['rpbins'],
+                       'pimax': CF['pimax'],
                        'boxsize': self.cnf['Main']['boxsize']})
         return Correlator(**kwargs)
 
@@ -121,17 +114,4 @@ class PaperModelConfigParser:
                   'cut_range': self.cnf['Main']['cut_range'],
                   'Nmocks': self.cnf['Main']['Nmocks'],
                   'seed': self.cnf['Main']['seed']}
-        print(kwargs)
         return PaperModel(**kwargs)
-
-
-def main():
-    # TO DO:
-    #   - import argparse here to specify the path
-    parser = PaperModelConfigParser('config.toml')
-    model = parser()
-    print(model)
-
-
-if __name__ == '__main__':
-    main()

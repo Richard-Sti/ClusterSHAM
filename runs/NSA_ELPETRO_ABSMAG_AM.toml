@@ -5,7 +5,7 @@ cut_range = [9.8, 10.4]
 Nmocks = 50
 seed = 42
 
-# Start inferring cut_range, rpbins and pimax from the survey CF
+# Start loading cut_range from the CF file
 
 
 [AbundanceMatch]
@@ -14,10 +14,6 @@ MFpath = '../data/SMF.npy'
 ext_range = [9.2, 11.0]
 
 [Correlator]
-rpmin = 0.1
-rpmax = 10
-nrpbins = 12
-pimax = 15
 subside = 25
 Nmult = 25
 

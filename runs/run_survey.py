@@ -14,37 +14,74 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy
+import argparse
+from joblib import dump
 
-from parser_wp_survey import Projected2PointCorrelationParser
+from parser_wp import Projected2PointCorrelationParser
 from parser_survey import SurveyConfigParser
 
-# Get argparse to specify the config and nthreads
 
 
 def get_randoms(path, N):
+    """
+    Loads `N` random RA-dec points from file `path`. This file must respect
+    the survey angular geometry.
+
+    Parameters
+    ----------
+    path : str
+        Path to the randoms file.
+    N : int
+        Number of randoms to be selected.
+
+    Returns
+    -------
+    randRA : numpy.ndarray
+        Right ascension randoms.
+    randDEC : numpy.ndarray
+        Declination randoms.
+    """
     randoms = numpy.load(path)
-    # Ensure I don't have to do this
-    randoms = randoms[numpy.logical_and(randoms['RA'] > 100, randoms['RA'] < 270)]
     mask = numpy.random.choice(randoms.size, size=N, replace=False)
     randRA = randoms['RA'][mask]
     randDEC = randoms['DEC'][mask]
     return randRA, randDEC
 
+
 def main():
-    wp_parser = Projected2PointCorrelationParser('NSAconfig.toml')
-    wp_model = wp_parser()
-    survey_parser = SurveyConfigParser('NSAconfig.toml')
+    parser = argparse.ArgumentParser(description='Survey wp submitter.')
+    parser.add_argument('--path', type=str, help='Config file path.')
+    parser.add_argument('--sub_id', type=str, help='Subsample ID')
+    args = parser.parse_args()
+
+    survey_parser = SurveyConfigParser(args.path, args.sub_id)
     survey = survey_parser()
-    print('Size', survey['RA'].size)
+    # Get the wp_model
+    wp_parser = Projected2PointCorrelationParser(args.path)
+    wp_model = wp_parser()
+    # Get the randoms
+    randRA, randDEC = get_randoms(
+            survey_parser.cnf['Main']['randoms_path'],
+            survey_parser.cnf['Main']['Nmult'] * survey['RA'].size)
 
-    path = survey_parser.cnf['Main']['randoms_path']
-    N = survey_parser.cnf['Main']['Nmult'] * survey['RA'].size
-    randRA, randDEC = get_randoms(path, N)
+    attr = survey_parser.cut_condition.attr[0]
+    cut_range = survey_parser.cut_condition.ext_range
 
-    res = wp_model.survey_wp(survey['RA'], survey['DEC'], survey['ZDIST'], randRA, randDEC)
-    # Save the result to the output folder?
+    print('Calculating {} for {}'.format(attr, cut_range))
+    res = wp_model.survey_wp(survey['RA'], survey['DEC'],
+                             survey['COMOVING_DIST'], randRA,
+                             randDEC, is_comoving=True)
+#                             Npoints_kmeans=survey['RA'].size * 5)
+
+    res.update({'cut_range': cut_range,
+                'attr': attr})
+    # A good place to append the external range here...
+    fname = survey_parser.cnf['Main']['out_folder']
+    fname += "CF_{}_{}_{}_{}.p".format(attr, args.sub_id, *cut_range)
+    print("Saving results to {}".format(fname))
     print(res)
-
+    dump(res, fname)
+    print("Done!")
 
 
 if __name__ == '__main__':
