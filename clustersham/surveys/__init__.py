@@ -14,4 +14,4 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 # from .number_density import NumberDensity
-from .projected_wp import ProjectedCorrelationFunction
+from .projected_wp import Projected2PointCorrelation

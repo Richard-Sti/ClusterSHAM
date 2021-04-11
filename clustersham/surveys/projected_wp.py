@@ -23,30 +23,29 @@ from kmeans_radec import kmeans_sample
 from scipy.constants import c as speed_of_light
 
 
-class ProjectedCorrelationFunction:
-    """A class for calculating the projected two-point correlation function
-    on survey data.
+class Projected2PointCorrelation:
+    r"""
+    A class for calculating the projected 2-point correlation function in
+    surveys.
 
+    The random radial distance (redshift) is calculated via the reshuffling
+    method, it is sampled (with replacement) from the data redshifts.
 
-    Discuss reshuffling
-
-    Comment on cosmology and units
+    The radial distance everywhere is assumed to be cosmological redshift,
+    whereas `rpbins` and `pimax` are in units :math:`\mathrm{Mpc}/h`. The
+    conversion from redshift to comoving distance is dependent on the choice
+    of cosmology. For more details see either `self.survey_wp` or
+    `self.survey_jackknife` and the Corrfunc documentation.
 
     Parameters
     ----------
     rpbins: numpy.ndarray
-        Projected orthogonal to the line of sight distance bins in which the
-        projected correlation function is calculated.
+        Orthogonal to the line of sight bins :math:`r_p`.
     pimax: float
-        Maximum distance along the line of sight to integrate over when
-        calculating the projected wp.
+        Maximum distance along the line of sight to integrate over
+        :math:`\pi_max`.
     Njack: int
-        Number of jackknifes.
-    Nmult: int
-        How many times more randoms used to relative to data.
-
-
-    Write something that checks whether we have degrees.
+        Number of jackknife clusters.
     """
 
     def __init__(self, rpbins, pimax, Njack):
@@ -59,7 +58,7 @@ class ProjectedCorrelationFunction:
 
     @property
     def rpbins(self):
-        """Projected ortogonal to the line of sight :math`r_b`: bins."""
+        """Orthogonal to the line of sight :math`r_p`: bins."""
         return self._rpbins
 
     @rpbins.setter
@@ -153,7 +152,6 @@ class ProjectedCorrelationFunction:
             indx = numpy.random.choice(arange, RA.size - Npoints, replace=False)
             mask[indx] = False
 
-
         X = numpy.vstack([RA[mask], DEC[mask]]).T
         print(X.shape, self.Njack)
         return kmeans_sample(X, self.Njack, maxiter=250, tol=1e-5, verbose=0)
@@ -228,7 +226,8 @@ class ProjectedCorrelationFunction:
         """
         if RA2 is None or DEC2 is None or Z2 is None:
             weights1 = numpy.ones_like(RA1)
-            CZ1 = speed_of_light * 1e-3 * Z1 # comment here
+            # Corrfunc likes units :math:`c * z` in :math:`km/s`.
+            CZ1 = speed_of_light * 1e-3 * Z1
             return Corrfunc.mocks.DDrppi_mocks(
                     autocorr=1, cosmology=cosmology, nthreads=nthreads,
                     pimax=self.pimax, binfile=self.rpbins, RA1=RA1, DEC1=DEC1,
@@ -237,6 +236,7 @@ class ProjectedCorrelationFunction:
         else:
             weights1 = numpy.ones_like(RA1)
             weights2 = numpy.ones_like(RA2)
+            # Corrfunc likes units :math:`c * z` in :math:`km/s`.
             CZ1 = speed_of_light * 1e-3 * Z1
             CZ2 = speed_of_light * 1e-3 * Z2
             return Corrfunc.mocks.DDrppi_mocks(
@@ -245,8 +245,12 @@ class ProjectedCorrelationFunction:
                     CZ1=CZ1, RA2=RA2, DEC2=DEC2, CZ2=CZ2, weights1=weights1,
                     weights2=weights2, weight_type='pair_product')
 
-    def _count_DDDRRR(self, RA, DEC, Z, randRA, randDEC, randZ, cosmology, nthreads):
-        # DOCS
+    def _count_DDDRRR(self, RA, DEC, Z, randRA, randDEC, randZ, cosmology,
+                      nthreads):
+        """
+        A shortcut to calculate the DD, DR, and RR pairs. For more
+        information see `self._count_pairs`. To be called only internally.
+        """
         DD = self._count_pairs(RA, DEC, Z, cosmology=cosmology,
                                nthreads=nthreads)
         DR = self._count_pairs(RA, DEC, Z, randRA, randDEC, randZ,
@@ -255,19 +259,57 @@ class ProjectedCorrelationFunction:
                                nthreads=nthreads)
         return DD, DR, RR
 
-
     @staticmethod
-    def random_redshift(Z, N):
+    def random_redshifts(Z, N):
+        """
+        Samples with replacement from `Z`. Used to assign redshifts to the
+        randoms which follows the selection criteria of the survey.
+
+            .. Note:
+                Add a reference.
+
+        Parameters
+        ----------
+        Z : numpy.ndarray
+            Array of redshifts (1D).
+        N : int
+            Number of points to sample.
+
+        Returns
+        -------
+        result : numpy.ndarray
+            Sampled with replacement points from `Z`.
+
+        """
         return numpy.random.choice(Z, N, replace=True)
+
+    def _get_rpavg(self, DD):
+        r"""
+        Given 2D pair counts from `Corrfunc.mocks.DDrppi` in :math:`r_p` and
+        :math:`\pi` cells calculates the pair-weighted average separation
+        in :math:`r_p` bins.
+
+        Parameters
+        ----------
+        DD : structured numpy.ndarray
+            Pair counts from `Corrfunc.mocks.DDrppi_mocks`.
+
+        Returns
+        -------
+        rpavg : numpy.ndarray
+            Average separation in :math:`r_p` bins.
+        """
+        rpavg = numpy.zeros(self.rpbins.size - 1)
+        for i, rmin in enumerate(numpy.unique(DD['rmin'])):
+            mask = DD['rmin'] == rmin
+            rpavg[i] = numpy.average(DD['rpavg'][mask], weights=DD['npairs'][mask])
+        return rpavg
 
     def survey_wp(self, RA, DEC, Z, randRA, randDEC, cosmology=2,
                   nthreads=1, seed=42):
-        """
-
-        ADd seeds docum
-
+        r"""
         Calculates the survey correlation function using the Landy-Szalay
-        estimater.
+        estimator.
 
         Calls `Corrfunc.utils.convert_rp_pi_counts_to_wp` to convert pair
         counts from `Corrfunc.mocks.DDrppi_mocks`.
@@ -276,8 +318,6 @@ class ProjectedCorrelationFunction:
             .. Note:
                 All particles are assumed to have a uniform weight.
 
-
-        Output rpavg as well? Start doing this by default
 
         Parameters
         ----------
@@ -299,18 +339,28 @@ class ProjectedCorrelationFunction:
             cosmologies see Corrfunc documentation.
         nthreads : int, optional
             Number of openMP threads, if allowed. By default 1.
+        seed : int, optional
+            Random seed.
 
         Returns
         -------
-        wp : numpy.ndarray
-            Survey correlation function in bins `self.rpbbins`.
+        result : dict
+            Results dictionary that contains:
+                rpavg : numpy.ndarray
+                    Average pair separation in bins :math:`r_p`.
+                wp : numpy.ndarray
+                    Survey 2-point correlation function in bins `self.rpbbins`.
+                pimax : float
+                    Maximum integration distance :math:`\pi_max`.
+                rpbins : numpy.ndarray
+                    Bins :math:`r_p`.
         """
         numpy.random.seed(seed)
         # Check input arrays
         self._check_arrays(RA, DEC, Z)
         self._check_arrays(randRA, randDEC)
         # Get the random redshifts using the reshuffle method.
-        randZ = self.random_redshift(Z, randRA.size)
+        randZ = self.random_redshifts(Z, randRA.size)
         # Pair counting
         DD, DR, RR = self._count_DDDRRR(RA, DEC, Z, randRA, randDEC, randZ,
                                         cosmology, nthreads)
@@ -320,23 +370,81 @@ class ProjectedCorrelationFunction:
         wp = Corrfunc.utils.convert_rp_pi_counts_to_wp(
                 ND1=Nd, ND2=Nd, NR1=Nr, NR2=Nr, D1D2=DD, D1R2=DR, D2R1=DR,
                 R1R2=RR, pimax=self.pimax, nrpbins=self.rpbins.size - 1)
+        if numpy.any(numpy.isnan(wp)):
+            raise ValueError("`wp` contains NaNs ({}). Most likely the lowest "
+                             "separation bins contain no pairs. Consider "
+                             "changing the binning.".format(wp))
 
         return {'rpavg': self._get_rpavg(DD),
                 'wp': wp,
                 'pimax': self.pimax,
                 'rpbins': self.rpbins}
 
-    def _get_rpavg(self, DD):
-        rpavg = numpy.zeros(self.rpbins.size - 1)
-        rmins = numpy.unique(DD['rmin'])
-        for i, rmin in enumerate(rmins):
-            mask = DD['rmin'] == rmin
-            rpavg[i] = numpy.average(DD['rpavg'][mask], weights=DD['npairs'][mask])
-        return rpavg
-
     def survey_jackknife(self, RA, DEC, Z, randRA, randDEC, cosmology=2,
-                         nthreads=1, verbose=1, Npoints_kmeans=None, seed=42):
-        """Explain why cannot just subtract pairs"""
+                         nthreads=1, verbose=True, Npoints_kmeans=None, seed=42):
+        r"""
+        Calculates the survey correlation function covariance matrix using
+        the Landy-Szalay estimator, splits the survey into `self.Njack` angular
+        masks.
+
+        Calls `Corrfunc.utils.convert_rp_pi_counts_to_wp` to convert pair
+        counts from `Corrfunc.mocks.DDrppi_mocks`.
+
+
+            .. Note:
+                All particles are assumed to have a uniform weight. It is
+                possible to significantly speed-up this function by only
+                calculating the removed pairs at each jackknife iteration.
+                However, as this is typically not calculated repeatedly the
+                extra computation cost is acceptable.
+
+
+        Parameters
+        ----------
+        RA : numpy.ndarrray
+            Right ascension in degrees (:math:`0 < RA < 360`).
+        DEC : numpy.ndarrray
+            Declination in degrees (:math:`-90 < DEC < 90`).
+        Z : numpy.ndarray
+            Redshift.
+        randRA : numpy.ndarrray, optional.
+            Randoms right ascension in degrees (:math:`0 < RA < 360`). Must
+            match the survey angular geometry.
+        randDEC2 : numpy.ndarrray
+            Randoms declination in degrees (:math:`-90 < DEC < 90`). Must
+            match the survey angular geometry.
+        cosmology : int, optional
+            Cosmology integer choice. Valid values are `1` (LasDamas cosmology
+            :math:`\Omega_m = 0.25`, :math:`\Omega_\Lambda = 0.75`) and `2`
+            (Planck cosmology :math:`\Omega_m=0.302`,
+            :math:`\Omega_\Lambda = 0.698`). For how to add different
+            cosmologies see Corrfunc documentation.
+        nthreads : int, optional
+            Number of openMP threads, if allowed. By default 1.
+        verbose : bool, optional
+            Whether to report estimated remaining time. By default `True`.
+        Npoints_kmeans : int, optional
+            Number of randoms to predict the clusters' centres. By default
+            `None`, randomly picks `RA.size` points.
+        seed : int, optional
+            Random seed.
+
+        Returns
+        -------
+        result : dict
+            Results dictionary that contains:
+                rpavg : numpy.ndarray
+                    Average pair separation in bins :math:`r_p`.
+                wp : numpy.ndarray
+                    Survey 2-point correlation function in bins `self.rpbbins`.
+                wp : numpy.ndarray
+                    Survey 2-point correlation function covariance matrix in
+                    bins `self.rpbbins`.
+                pimax : float
+                    Maximum integration distance :math:`\pi_max`.
+                rpbins : numpy.ndarray
+                    Bins :math:`r_p`.
+        """
         numpy.random.seed(seed)
         # Check input arrays
         self._check_arrays(RA, DEC, Z)
@@ -345,21 +453,21 @@ class ProjectedCorrelationFunction:
         if Npoints_kmeans is None:
             Npoints_kmeans = RA.size
 
-        # Calculate kmeans first on randoms change the number of points to choice
+        # Calculate kmeans first on randoms
         kmeans = self._get_clusters(randRA, randDEC, Npoints=Npoints_kmeans)
 
         data_bins = self._get_nearest(kmeans, RA, DEC)
         rand_bins = self._get_nearest(kmeans, randRA, randDEC)
         if verbose:
             print('Calculated k-means clusters.')
-
-        randZ = self.random_redshift(Z, randRA.size)
-
+        # Get the random redshifts
+        randZ = self.random_redshifts(Z, randRA.size)
 
         if verbose:
             timer = numpy.full(self.Njack, fill_value=numpy.nan)
 
         wps = numpy.zeros(shape=(self.Njack, self.rpbins.size - 1))
+
         for i in range(self.Njack):
             start = perf_counter()
             mask_data = data_bins != i
@@ -375,6 +483,11 @@ class ProjectedCorrelationFunction:
             wps[i, :] = Corrfunc.utils.convert_rp_pi_counts_to_wp(
                     ND1=Nd, ND2=Nd, NR1=Nr, NR2=Nr, D1D2=DD, D1R2=DR, D2R1=DR,
                     R1R2=RR, pimax=self.pimax, nrpbins=self.rpbins.size - 1)
+            if numpy.any(numpy.isnan(wp)):
+                raise ValueError("`wp` contains NaNs ({}). Most likely the "
+                                 "lowest separation bins contain no pairs. "
+                                 "Consider changing the binning or increasing "
+                                 "the number of randoms".format(wp))
 
             # Time keeper, estimates remaining time
             if verbose:
@@ -391,7 +504,7 @@ class ProjectedCorrelationFunction:
                     unit = 'hours'
 
                 print("Completed {}/{}. Estimated remaining time {:.2f} {}"
-                      .format(i+1, self.Njack+1, remaining_time, unit))
+                      .format(i+1, self.Njack, remaining_time, unit))
 
         jack_wp = numpy.cov(wps, rowvar=False, bias=True) * (self.Njack - 1)
         # Want to know rpavg, need DD for the whole volume
