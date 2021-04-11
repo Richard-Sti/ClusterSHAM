@@ -201,8 +201,6 @@ class Correlator:
             return result['wp'], result['rpavg']
         return result['wp']
 
-
-
     def _count_pairs(self, x1, y1, z1, x2=None, y2=None, z2=None,
                      return_rpavg=False, nthreads=1):
         r"""
