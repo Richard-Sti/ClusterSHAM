@@ -1,4 +1,4 @@
-# Copyright (C) 2020  Richard Stiskalek
+# Copyright (C) 2021  Richard Stiskalek
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
 # Free Software Foundation; either version 3 of the License, or (at your
@@ -13,17 +13,19 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-from .likelihood import GaussianClusteringLikelihood
+import numpy
+import argparse
+from joblib import dump
 
-from ._utils import (load_pickle, dump_pickle, in_hull)
-from .plots import Plots
+from parser_paper_model import PaperModelConfigParser
 
-from .paper_model import PaperModel
 
-from .data_routines import (LogRoutine, ApparentMagnitudeRoutine,
-                            ComovingDistanceRoutine, FiniteCondition,
-                            RangeCondition, IsEqualCondition,
-                            LuminosityLogMassConvertor,
-                            AbsoluteMagnitudeConvertor, Routines, Conditions,
-                            Little_h)
-from .data_selector import DataSelector
+def main():
+    parser = argparse.ArgumentParser(description='Paper model submitted.')
+    parser.add_argument('--path', type=str, help='Config file path.')
+    parser.add_argument('--sub_id', type=str, help='Subsample ID')
+    args = parser.parse_args()
+
+    parser = PaperModelConfigParser()
+
+    # ... Now will have to come up with the MPI grid search

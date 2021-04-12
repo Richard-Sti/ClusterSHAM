@@ -153,7 +153,6 @@ class Projected2PointCorrelation:
             mask[indx] = False
 
         X = numpy.vstack([RA[mask], DEC[mask]]).T
-        print(X.shape, self.Njack)
         return kmeans_sample(X, self.Njack, maxiter=250, tol=1e-5, verbose=0)
 
     @staticmethod
@@ -181,7 +180,7 @@ class Projected2PointCorrelation:
         return kmeans.find_nearest(X)
 
     def _count_pairs(self, RA1, DEC1, Z1, RA2=None, DEC2=None, Z2=None,
-                     cosmology=2, nthreads=1):
+                     is_comoving=False, cosmology=2, nthreads=1):
         r"""
         Counts 2D pair counts for the projected correlation function. If
         `RA2`, `DEC2`, and `Z2` are provided calculates cross-correlation
@@ -210,6 +209,9 @@ class Projected2PointCorrelation:
             i.e. autocorrelation regime.
         Z2 : numpy.ndarray
             Redshift. By default `None`, i.e. autocorrelation regime.
+        is_comoving : bool, optional
+            Whether comoving distances passed instead of `Z`. By default
+            `False`. If `True` then `cosmology` is ignored.
         cosmology : int, optional
             Cosmology integer choice. Valid values are `1` (LasDamas cosmology
             :math:`\Omega_m = 0.25`, :math:`\Omega_\Lambda = 0.75`) and `2`
@@ -226,37 +228,41 @@ class Projected2PointCorrelation:
         """
         if RA2 is None or DEC2 is None or Z2 is None:
             weights1 = numpy.ones_like(RA1)
-            # Corrfunc likes units :math:`c * z` in :math:`km/s`.
-            CZ1 = speed_of_light * 1e-3 * Z1
+            if not is_comoving:
+                # Corrfunc likes units :math:`c * z` in :math:`km/s`.
+                Z1 = Z1 * speed_of_light * 1e-3
             return Corrfunc.mocks.DDrppi_mocks(
                     autocorr=1, cosmology=cosmology, nthreads=nthreads,
                     pimax=self.pimax, binfile=self.rpbins, RA1=RA1, DEC1=DEC1,
-                    CZ1=CZ1, weights1=weights1, weight_type='pair_product',
-                    output_rpavg=True)
+                    CZ1=Z1, weights1=weights1, weight_type='pair_product',
+                    output_rpavg=True, is_comoving_dist=is_comoving)
         else:
             weights1 = numpy.ones_like(RA1)
             weights2 = numpy.ones_like(RA2)
-            # Corrfunc likes units :math:`c * z` in :math:`km/s`.
-            CZ1 = speed_of_light * 1e-3 * Z1
-            CZ2 = speed_of_light * 1e-3 * Z2
+            if not is_comoving:
+                # Corrfunc likes units :math:`c * z` in :math:`km/s`.
+                Z1 = Z1 * speed_of_light * 1e-3
+                Z2 = Z2 * speed_of_light * 1e-3
             return Corrfunc.mocks.DDrppi_mocks(
                     autocorr=0, cosmology=cosmology, nthreads=nthreads,
                     pimax=self.pimax, binfile=self.rpbins, RA1=RA1, DEC1=DEC1,
-                    CZ1=CZ1, RA2=RA2, DEC2=DEC2, CZ2=CZ2, weights1=weights1,
-                    weights2=weights2, weight_type='pair_product')
+                    CZ1=Z1, RA2=RA2, DEC2=DEC2, CZ2=Z2, weights1=weights1,
+                    weights2=weights2, weight_type='pair_product',
+                    is_comoving_dist=is_comoving)
 
-    def _count_DDDRRR(self, RA, DEC, Z, randRA, randDEC, randZ, cosmology,
-                      nthreads):
+    def _count_DDDRRR(self, RA, DEC, Z, randRA, randDEC, randZ, is_comoving,
+                      cosmology, nthreads):
         """
         A shortcut to calculate the DD, DR, and RR pairs. For more
         information see `self._count_pairs`. To be called only internally.
         """
         DD = self._count_pairs(RA, DEC, Z, cosmology=cosmology,
-                               nthreads=nthreads)
+                               is_comoving=is_comoving, nthreads=nthreads)
         DR = self._count_pairs(RA, DEC, Z, randRA, randDEC, randZ,
-                               cosmology=cosmology, nthreads=nthreads)
-        RR = self._count_pairs(randRA, randDEC, randZ, cosmology=cosmology,
+                               is_comoving=is_comoving, cosmology=cosmology,
                                nthreads=nthreads)
+        RR = self._count_pairs(randRA, randDEC, randZ, cosmology=cosmology,
+                               is_comoving=is_comoving, nthreads=nthreads)
         return DD, DR, RR
 
     @staticmethod
@@ -306,8 +312,8 @@ class Projected2PointCorrelation:
                                      weights=DD['npairs'][mask])
         return rpavg
 
-    def survey_wp(self, RA, DEC, Z, randRA, randDEC, cosmology=2,
-                  nthreads=1, seed=42):
+    def survey_wp(self, RA, DEC, Z, randRA, randDEC, is_comoving=False,
+                  cosmology=2, nthreads=1, seed=42):
         r"""
         Calculates the survey correlation function using the Landy-Szalay
         estimator.
@@ -332,6 +338,9 @@ class Projected2PointCorrelation:
             Randoms right ascension in degrees (:math:`0 < RA < 360`).
         randDEC2 : numpy.ndarrray
             Randoms declination in degrees (:math:`-90 < DEC < 90`).
+        is_comoving : bool, optional
+            Whether comoving distances passed instead of `Z`. By default
+            `False`. If `True` then `cosmology` is ignored.
         cosmology : int, optional
             Cosmology integer choice. Valid values are `1` (LasDamas cosmology
             :math:`\Omega_m = 0.25`, :math:`\Omega_\Lambda = 0.75`) and `2`
@@ -364,7 +373,7 @@ class Projected2PointCorrelation:
         randZ = self.random_redshifts(Z, randRA.size)
         # Pair counting
         DD, DR, RR = self._count_DDDRRR(RA, DEC, Z, randRA, randDEC, randZ,
-                                        cosmology, nthreads)
+                                        is_comoving, cosmology, nthreads)
         # Convert pair counts to the correlation function
         Nd = RA.size
         Nr = randRA.size
@@ -381,9 +390,9 @@ class Projected2PointCorrelation:
                 'pimax': self.pimax,
                 'rpbins': self.rpbins}
 
-    def survey_jackknife(self, RA, DEC, Z, randRA, randDEC, cosmology=2,
-                         nthreads=1, verbose=True, Npoints_kmeans=None,
-                         seed=42):
+    def survey_jackknife(self, RA, DEC, Z, randRA, randDEC, is_comoving=False,
+                         cosmology=2, nthreads=1, verbose=True,
+                         Npoints_kmeans=None, seed=42):
         r"""
         Calculates the survey correlation function covariance matrix using
         the Landy-Szalay estimator, splits the survey into `self.Njack` angular
@@ -415,6 +424,9 @@ class Projected2PointCorrelation:
         randDEC2 : numpy.ndarrray
             Randoms declination in degrees (:math:`-90 < DEC < 90`). Must
             match the survey angular geometry.
+        is_comoving : bool, optional
+            Whether comoving distances passed instead of `Z`. By default
+            `False`. If `True` then `cosmology` is ignored.
         cosmology : int, optional
             Cosmology integer choice. Valid values are `1` (LasDamas cosmology
             :math:`\Omega_m = 0.25`, :math:`\Omega_\Lambda = 0.75`) and `2`
@@ -439,7 +451,7 @@ class Projected2PointCorrelation:
                     Average pair separation in bins :math:`r_p`.
                 wp : numpy.ndarray
                     Survey 2-point correlation function in bins `self.rpbbins`.
-                wp : numpy.ndarray
+                cov : numpy.ndarray
                     Survey 2-point correlation function covariance matrix in
                     bins `self.rpbbins`.
                 pimax : float
@@ -477,7 +489,7 @@ class Projected2PointCorrelation:
             DD, DR, RR = self._count_DDDRRR(
                     RA[mask_data], DEC[mask_data], Z[mask_data],
                     randRA[mask_rand], randDEC[mask_rand], randZ[mask_rand],
-                    cosmology, nthreads)
+                    is_comoving, cosmology, nthreads)
 
             Nd = mask_data.sum()
             Nr = mask_rand.sum()
@@ -512,7 +524,7 @@ class Projected2PointCorrelation:
         jack_wp = numpy.cov(wps, rowvar=False, bias=True) * (self.Njack - 1)
         # Want to know rpavg, need DD for the whole volume
         DD = self._count_pairs(RA, DEC, Z, cosmology=cosmology,
-                               nthreads=nthreads)
+                               is_comoving=is_comoving, nthreads=nthreads)
         return {'rpavg': self._get_rpavg(DD),
                 'wp': numpy.mean(wps, axis=0),
                 'cov': jack_wp,

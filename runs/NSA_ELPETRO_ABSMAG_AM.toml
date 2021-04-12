@@ -1,0 +1,17 @@
+[Main]
+boxsize = 100
+Nmocks = 50
+seed = 42
+
+
+[AbundanceMatch]
+proxy = 'mvir_proxy'
+MFpath = '../data/SMF.npy'
+
+[Correlator]
+subside = 25
+Nmult = 25
+
+[Bounds]
+alpha = [0.0, 1.0]
+scatter = [0.005, 0.3]

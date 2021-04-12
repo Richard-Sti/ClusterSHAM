@@ -36,10 +36,14 @@ class PaperModelConfigParser:
     ----------
         config_path : str
             Path to the toml config file.
+        CF_path : str
+            Path to the survey correlation function file.
     """
 
-    def __init__(self, config_path):
+    def __init__(self, config_path, CF_path):
         self.cnf = toml.load(config_path)
+        # Make sure the CF actually loads
+        self.CF = load(CF_path)
 
     def get_AM(self):
         """
@@ -53,7 +57,7 @@ class PaperModelConfigParser:
             raise ValueError("Either 'MFpath' or 'LFpath' must be specified.")
         if MFpath is not None and LFpath is not None:
             raise ValueError("'MFpath' and 'LFpath' given simultaneously.")
-        # Load either the LF or MF
+        # Loadmeither the LF or MF
         if MFpath is None:
             nd = numpy.load(LFpath)
             faint_end_first = False
@@ -85,17 +89,10 @@ class PaperModelConfigParser:
         Initialises `clustersham.mocks.Correlator` from the config file.
         """
         # Get rpbins
-        pars = ['rpmin', 'rpmax', 'nrpbins']
-        args = [self.cnf['Correlator'].pop(key, None) for key in pars]
-        for i, arg in enumerate(args):
-            if arg is None:
-                raise ValueError("'{}' must be specified in 'Correlato''"
-                                 .format(pars[i]))
-        rpbins = numpy.logspace(numpy.log10(args[0]), numpy.log10(args[1]),
-                                args[2] + 1)
-        # And the remainder of the kwargs
+        CF = load(self.cnf['Main']['survey_path'])
         kwargs = self.cnf['Correlator']
-        kwargs.update({'rpbins': rpbins,
+        kwargs.update({'rpbins': self.CF['rpbins'],
+                       'pimax': self.CF['pimax'],
                        'boxsize': self.cnf['Main']['boxsize']})
         return Correlator(**kwargs)
 
@@ -118,20 +115,7 @@ class PaperModelConfigParser:
                   'correlator': self.get_correlator(),
                   'likelihood': self.get_likelihood(),
                   'bounds': self.cnf['Bounds'],
-                  'cut_range': self.cnf['Main']['cut_range'],
+                  'cut_range': self.CF['cut_range'],
                   'Nmocks': self.cnf['Main']['Nmocks'],
                   'seed': self.cnf['Main']['seed']}
-        print(kwargs)
         return PaperModel(**kwargs)
-
-
-def main():
-    # TO DO:
-    #   - import argparse here to specify the path
-    parser = PaperModelConfigParser('config.toml')
-    model = parser()
-    print(model)
-
-
-if __name__ == '__main__':
-    main()
