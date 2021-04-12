@@ -38,8 +38,9 @@ class PaperModelConfigParser:
             Path to the toml config file.
     """
 
-    def __init__(self, config_path):
+    def __init__(self, config_path, sub_id):
         self.cnf = toml.load(config_path)
+        self.CF = load(self.cnf['Main']['survey_path'])
 
     def get_AM(self):
         """
@@ -87,8 +88,8 @@ class PaperModelConfigParser:
         # Get rpbins
         CF = load(self.cnf['Main']['survey_path'])
         kwargs = self.cnf['Correlator']
-        kwargs.update({'rpbins': CF['rpbins'],
-                       'pimax': CF['pimax'],
+        kwargs.update({'rpbins': self.CF['rpbins'],
+                       'pimax': self.CF['pimax'],
                        'boxsize': self.cnf['Main']['boxsize']})
         return Correlator(**kwargs)
 
@@ -111,7 +112,7 @@ class PaperModelConfigParser:
                   'correlator': self.get_correlator(),
                   'likelihood': self.get_likelihood(),
                   'bounds': self.cnf['Bounds'],
-                  'cut_range': self.cnf['Main']['cut_range'],
+                  'cut_range': self.CF['cut_range'],
                   'Nmocks': self.cnf['Main']['Nmocks'],
                   'seed': self.cnf['Main']['seed']}
         return PaperModel(**kwargs)

@@ -1,5 +1,6 @@
 [Main]
 boxsize = 100
+
 survey_path = '../data/ObsCF9.8to10.4.p'
 cut_range = [9.8, 10.4]
 Nmocks = 50
