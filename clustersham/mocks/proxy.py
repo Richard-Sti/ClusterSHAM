@@ -82,7 +82,7 @@ class VirialMassProxy(BaseProxy):
     """
     name = 'mvir_proxy'
 
-    def __init__(self, keep_params=None):
+    def __init__(self):
         self.halo_params = ['mvir', 'mpeak']
 
     def __call__(self, halos, theta):
@@ -123,12 +123,11 @@ class VirialMassProxy(BaseProxy):
         proxy += alpha * logMratio
         return proxy
 
-
-
 class PeakRedshiftProxy(BaseProxy):
-    r""" A pre-selection proxy that eliminates all halos whose peak mass
-    redshift is above ``zcutoff``. The remaining halos are ranked by
-    the present virial mass.
+    r"""
+    A pre-selection proxy that eliminates all halos whose peak mass
+    redshift is above ``zcutoff``. The remaining halos are ranked by the
+    present virial mass.
     """
 
     name = 'zmpeak_proxy'
@@ -175,13 +174,22 @@ class PeakRedshiftProxy(BaseProxy):
 
 
 class VirialVelocityProxy(BaseProxy):
-    r"""Virial velocity proxy for abundance matching defined as
+    r"""
+    Virial velocity abundance matching proxy defined as
+
 
         .. math::
             v_{\alpha} = v_0 * \left[ v_{\max} / v_0\right]^{\alpha},
 
+
     where :math:`v_0` is the virial velocity evaluated at the peak halo mass
     and :math:`v_{\max}` is the maximum circular velocity.
+
+    Parameters
+    ----------
+    cosmo : astropy.cosmology
+        Cosmology to calculate the the virial velocity at the peak halo mass.
+        Must match the simulation cosmology.
 
     Note
     ----
@@ -190,8 +198,9 @@ class VirialVelocityProxy(BaseProxy):
     """
     name = 'vvir_proxy'
 
-    def __init__(self):
-        self.halo_params = ['vvir', 'Vmax@Mpeak']
+    def __init__(self, cosmo):
+        self.halo_params = ['mpeak', 'mpeak_scale', 'Vmax@Mpeak']
+        self.cosmo = cosmo
 
     def __call__(self, halos, theta):
         """
@@ -209,26 +218,39 @@ class VirialVelocityProxy(BaseProxy):
         proxy : numpy.ndarray
             Halo proxy.
         """
-        alpha = theta.pop('alpha')
+        alpha = theta.pop('alpha', None)
         if alpha is None:
             raise ValueError("'alpha' must be specified.")
         self._check_halo_attributes(halos)
+        # Get vvir
+        try:
+            log_vvir = self._cache['log_vvir']
+        except KeyError:
+            log_vvir = numpy.log10(self.get_vvir(halos))
+            self._cache.update({'log_vvir': log_vvir})
 
-        return halos['vvir'] * (halos['Vmax@Mpeak'] / halos['vvir'])**alpha
+        try:
+            log_vratio = self._cache['log_vratio']
+        except KeyError:
+            log_vratio = numpy.log10(halos['Vmax@Mpeak']) - log_vvir
+            self._cache.update({'log_vratio': log_vratio})
 
-    @staticmethod
-    def vvir(halos):
+        proxy = log_vvir
+        proxy += alpha * log_vratio
+        return proxy
+
+    def get_vvir(self, halos):
         """
         Calculates the virial velocity at peak halo mass as defined in [1].
-        Note that following the probable definition in this work, the critical
-        density here is taken at present time as well.
+
+            .. Note:
+                The critical density is assumed to be at present time.
+
 
         Parameters
         ----------
         halos : structured numpy.ndarray
             Halos array with names fields
-        cosmology : astropy.cosmology
-            Cosmology used in the N-body simulation
 
         References
         ----------
@@ -238,15 +260,14 @@ class VirialVelocityProxy(BaseProxy):
         Returns
         ----------
         vvir : numpy.ndarray
-            Virial velocity in km/s
+            Virial velocity at peak halo mass in km/s.
         """
-        cosmology = FlatLambdaCDM(H0=68.8, Om0=0.295)
-
         z_mpeak = (1.0 / halos['mpeak_scale']) - 1
         mvir = halos['mpeak']
-        OmZ = cosmology.Om(z_mpeak)
-        Delta_vir = empirical_models.delta_vir(cosmology, z_mpeak) / OmZ
-        rho_crit = cosmology.critical_density0.to(u.kg/u.m**3)
+        OmZ = self.cosmo.Om(z_mpeak)
+        Delta_vir = empirical_models.delta_vir(self.cosmo, z_mpeak) / OmZ
+
+        rho_crit = self.cosmo.critical_density0.to(u.kg/u.m**3)
         vvir = ((4 * numpy.pi / 3 * const.G**3 * Delta_vir * rho_crit)**(1/6)
                 * (mvir * u.Msun.decompose())**(1/3)).to(u.km/u.s)
         return vvir.value
