@@ -51,6 +51,7 @@ def main():
     parser = argparse.ArgumentParser(description='Survey wp submitter.')
     parser.add_argument('--path', type=str, help='Config file path.')
     parser.add_argument('--sub_id', type=str, help='Subsample ID')
+    parser.add_argument('--nthreads', type=int, default=1, help='Subsample ID')
     args = parser.parse_args()
 
     survey_parser = SurveyConfigParser(args.path, args.sub_id)
@@ -67,10 +68,11 @@ def main():
     cut_range = survey_parser.cut_condition.ext_range
 
     print('Calculating {} for {}'.format(attr, cut_range))
-    res = wp_model.survey_wp(survey['RA'], survey['DEC'],
-                             survey['COMOVING_DIST'], randRA,
-                             randDEC, is_comoving=True)
-#                             Npoints_kmeans=survey['RA'].size * 5)
+    res = wp_model.survey_jackknife(survey['RA'], survey['DEC'],
+                                    survey['COMOVING_DIST'], randRA,
+                                    randDEC, is_comoving=True,
+                                    nthreads=args.nthreads,
+                                    Npoints_kmeans=survey['RA'].size * 5)
 
     res.update({'cut_range': cut_range,
                 'attr': attr})

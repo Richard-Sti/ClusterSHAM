@@ -1,18 +1,12 @@
 [Main]
 boxsize = 100
-
-survey_path = '../data/ObsCF9.8to10.4.p'
-cut_range = [9.8, 10.4]
 Nmocks = 50
 seed = 42
-
-# Start loading cut_range from the CF file
 
 
 [AbundanceMatch]
 proxy = 'mvir_proxy'
 MFpath = '../data/SMF.npy'
-ext_range = [9.2, 11.0]
 
 [Correlator]
 subside = 25

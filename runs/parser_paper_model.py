@@ -36,11 +36,14 @@ class PaperModelConfigParser:
     ----------
         config_path : str
             Path to the toml config file.
+        CF_path : str
+            Path to the survey correlation function file.
     """
 
-    def __init__(self, config_path, sub_id):
+    def __init__(self, config_path, CF_path):
         self.cnf = toml.load(config_path)
-        self.CF = load(self.cnf['Main']['survey_path'])
+        # Make sure the CF actually loads
+        self.CF = load(CF_path)
 
     def get_AM(self):
         """

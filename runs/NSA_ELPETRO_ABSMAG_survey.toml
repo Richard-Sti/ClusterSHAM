@@ -2,7 +2,7 @@
 path = "../data/surveys/nsa_v1.fits"
 randoms_path = "../data/randoms/NSA_randoms.npy"
 out_folder = "../results/NSA/"
-Nmult = 10
+Nmult = 5
 
 
 
@@ -31,7 +31,7 @@ ext_range = [-22.5, -22.0]
 
 [Conditions.range_condition_SUB_N2]
 attr = 'ELPETRO_ABSMAG'
-ext_range = [-22.0, -21.0]
+ext_range = [-22.0, -21.5]
 
 [Conditions.range_condition_SUB_N3]
 attr = 'ELPETRO_ABSMAG'
