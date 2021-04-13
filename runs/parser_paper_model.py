@@ -89,7 +89,6 @@ class PaperModelConfigParser:
         Initialises `clustersham.mocks.Correlator` from the config file.
         """
         # Get rpbins
-        CF = load(self.cnf['Main']['survey_path'])
         kwargs = self.cnf['Correlator']
         kwargs.update({'rpbins': self.CF['rpbins'],
                        'pimax': self.CF['pimax'],
@@ -101,8 +100,7 @@ class PaperModelConfigParser:
         Initialises `clustersham.utils.GaussianClusteringLikelihood` from
         the config file.
         """
-        CF = load(self.cnf['Main']['survey_path'])
-        return GaussianClusteringLikelihood(CF['wp'], CF['cov'])
+        return GaussianClusteringLikelihood(self.CF['wp'], self.CF['cov'])
 
     def __call__(self):
         """
@@ -119,3 +117,15 @@ class PaperModelConfigParser:
                   'Nmocks': self.cnf['Main']['Nmocks'],
                   'seed': self.cnf['Main']['seed']}
         return PaperModel(**kwargs)
+
+
+def main():
+    config_path = "NSA_ELPETRO_ABSMAG_AM.toml"
+    CF_path = "../results/NSA/CF_ELPETRO_ABSMAG_N2_-22.0_-21.5.p"
+    parser = PaperModelConfigParser(config_path, CF_path)
+    model = parser()
+    print(model)
+
+
+if __name__ == '__main__':
+    main()
