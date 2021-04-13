@@ -298,16 +298,22 @@ class IsEqualCondition(BaseRoutine):
         Selector's attribute to be log-transformed.
     value : bool, int, float, str
         Value to which selector's attribute values are compared to.
+    is_equal : bool, optional
+        Whether to do 'is_equal'. Alternatively will check 'not_equal'. By
+        default True.
     """
     name = "is_equal_condition"
 
-    def __init__(self, attr, value):
+    def __init__(self, attr, value, is_equal=True):
         self.attr = self._check_attr(attr)
         if not isinstance(value, (bool, int, float, str)):
             raise ValueError("`value` must be of either bool, int, float, "
                              "or str type. Currently '{}'"
                              .format(value.dtype))
         self.value = value
+        if not isinstance(is_equal, bool):
+            raise ValueError("`is_equal` must be either `True` or `False`.")
+        self.is_equal = is_equal
 
     def __call__(self, selector):
         """
@@ -324,6 +330,8 @@ class IsEqualCondition(BaseRoutine):
         mask : numpy.ndarray
             Condition mask.
         """
+        if not self.is_equal:
+            return selector[self.attr] != self.value
         return selector[self.attr] == self.value
 
 
