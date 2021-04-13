@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 """Halo proxies to be used for abundance matching."""
 
 from abc import ABCMeta, abstractmethod
@@ -119,9 +120,10 @@ class VirialMassProxy(BaseProxy):
             self._cache.update({'logMratio': logMratio})
 
         # More efficient than a single line expression
-        proxy = logMvir
+        proxy = numpy.copy(logMvir)
         proxy += alpha * logMratio
         return proxy
+
 
 class PeakRedshiftProxy(BaseProxy):
     r"""
@@ -235,7 +237,7 @@ class VirialVelocityProxy(BaseProxy):
             log_vratio = numpy.log10(halos['Vmax@Mpeak']) - log_vvir
             self._cache.update({'log_vratio': log_vratio})
 
-        proxy = log_vvir
+        proxy = numpy.copy(log_vvir)
         proxy += alpha * log_vratio
         return proxy
 
