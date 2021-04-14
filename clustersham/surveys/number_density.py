@@ -1,35 +1,37 @@
-import numpy as np
-from scipy.optimize import fminbound
+iport numpy as np
+# from scipy.optimize import fminbound
 
 import kmeans_radec
 from astropy.cosmology import FlatLambdaCDM
 from joblib import (Parallel, delayed, externals)
 
 
+
 class NumberDensity(object):
-    """Class used for computing the stelllar luminosity and mass functions
-    for optical catalogs
-
-    Parameters
-    ----------
-    survey : py:class `PySHAM.survey`
     """
-    def __init__(self, survey, outfolder, nthreads=1):
-        self.survey = survey
-        self.RA, self.DEC, self.Z, self.Mr, self.logMS, self.Kcorr =\
-            [survey.data[p] for p in ('RA', 'DEC', 'Z', 'Mr', 'logMS',
-                                      'Kcorr')]
-        self.cosmo = FlatLambdaCDM(H0=100, Om0=0.295)
-        dL = self.cosmo.luminosity_distance(self.Z).value
-        self.appMr = self.Mr + 25 + 5*np.log10(dL) + self.Kcorr
 
-        self.Zmin, self.Zmax = self.Z.min(), self.Z.max()
-        self.N = self.RA.size
+    DOCS!
+
+
+    """
+#    def __init__(self, survey, outfolder, nthreads=1):
+    def __init__(self, cosmology)
+#        self.survey = survey
+#        self.RA, self.DEC, self.Z, self.Mr, self.logMS, self.Kcorr =\
+#            [survey.data[p] for p in ('RA', 'DEC', 'Z', 'Mr', 'logMS',
+#                                      'Kcorr')]
+        self.cosmology = cosmology
+#        self.cosmo = FlatLambdaCDM(H0=100, Om0=0.295)
+#        dL = self.cosmo.luminosity_distance(self.Z).value
+#        self.appMr = self.Mr + 25 + 5*np.log10(dL) + self.Kcorr
+
+#        self.Zmin, self.Zmax = self.Z.min(), self.Z.max()
+#        self.N = self.RA.size
         # fit a polynomial
-        self.Kcorr_pars = np.polyfit(self.Z, self.Kcorr, deg=3)
+#        self.Kcorr_pars = np.polyfit(self.Z, self.Kcorr, deg=3)
 
-        self.outfolder = outfolder
-        self.nthreads = nthreads
+#        self.outfolder = outfolder
+#        self.nthreads = nthreads
 
     def _Kcorr_mean(self, x):
         """Returns values of the polynomial fit of Kcorr"""

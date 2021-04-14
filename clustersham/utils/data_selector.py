@@ -94,7 +94,8 @@ class DataSelector:
     def routines(self, routines):
         """Sets `routines`. Ensures only known routines are given."""
         if routines is None:
-            return {}
+            self._routines = {}
+            return
         if not isinstance(routines, dict):
             raise ValueError("`routines` must be a dict.")
         # Check that conditions are well-defined
@@ -121,6 +122,7 @@ class DataSelector:
         """
         if indices is None:
             self._indices = {}
+            return
         if not isinstance(indices, dict):
             raise ValueError("`indices` must be a dict.")
 
@@ -153,7 +155,8 @@ class DataSelector:
     def little_h(self, transforms):
         """Sets ``little_h``. Checks there are known transforms."""
         if transforms is None:
-            return {}
+            self._little_h = {}
+            return
         if not isinstance(transforms, list):
             raise ValueError("`little_h` must be a list.")
         # Check that conditions are well-defined
