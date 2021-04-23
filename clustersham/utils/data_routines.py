@@ -187,6 +187,46 @@ class ComovingDistanceRoutine(BaseRoutine):
         return self.cosmo.comoving_distance(selector[self.redshift]).value
 
 
+class BaryonicMassRoutine(BaseRoutine):
+    """
+    Routine to calculate the galaxy baryonic mass calculated as
+
+        . math::
+            M_B = M_* + 1.4 * M_{HI},
+
+    where :math:`M_B`, :math:`M_*`, and :math:`M_{HI}` are the baryonic,
+    stellar and gas mass, respectively.
+
+    Parameters
+    ----------
+    stellar_mass : str
+        Selector's stellar mass attribute
+    gas_mass : str
+        Selector's gas mass attribute
+    """
+    name = 'baryonic_mass_routine'
+
+    def __init__(self, stellar_mass, gas_mass):
+        self.stellar_mass = self._check_attr(stellar_mass)
+        self.gas_mass = self._check_attr(gas_mass)
+
+    def __call__(self, selector):
+        """
+        Returns the baryonic mass.
+
+        Parameters
+        ----------
+        selector : `clustersham.utils.DataSelector` object
+            An object from which to access survey properties.
+
+        Returns
+        -------
+        baryonic_mass: numpy.ndarray
+            Galaxy baryonic mass.
+        """
+        return selector[self.stellar_mass] + 1.4 * selector[self.gas_mass]
+
+
 #
 # =============================================================================
 #
@@ -433,7 +473,8 @@ class AbsoluteMagnitudeConvertor:
 # Dictionary with routine names
 Routines = {LogRoutine.name: LogRoutine,
             ApparentMagnitudeRoutine.name: ApparentMagnitudeRoutine,
-            ComovingDistanceRoutine.name: ComovingDistanceRoutine}
+            ComovingDistanceRoutine.name: ComovingDistanceRoutine,
+            BaryonicMassRoutine.name: BaryonicMassRoutine}
 
 
 Conditions = {FiniteCondition.name: FiniteCondition,
