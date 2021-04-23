@@ -20,9 +20,9 @@ from scipy.stats import binned_statistic
 
 
 def galaxy_proxy_function(bins, proxy, vmax):
-    """
+    r"""
     Calculates the galaxy proxy function (typically luminosity or stellar mass)
-    using the non-parameteric :math:`V_\max` method.
+    using the non-parameteric :math:`V_{\max}` method.
 
     Parameters
     ----------
@@ -44,12 +44,12 @@ def galaxy_proxy_function(bins, proxy, vmax):
     dx = spacing[0]
     inv_vmax = 1. / vmax
     # Mean galaxy proxy in each bin
-    x, __, __ =  binned_statistic(proxy, proxy, statistic='median', bins=bins)
+    x, __, __ = binned_statistic(proxy, proxy, statistic='median', bins=bins)
     # Sum of inverse volumes in each bin
-    phi, __, __ =  binned_statistic(proxy, inv_vmax, statistic='sum',
+    phi, __, __ = binned_statistic(proxy, inv_vmax, statistic='sum',
                                     bins=bins)
     # Counts in each bin
-    bin_counts, __, __ =  binned_statistic(proxy, inv_vmax,
+    bin_counts, __, __ = binned_statistic(proxy, inv_vmax,
                                            statistic='count', bins=bins)
     # Divide phi by the bin-size
     phi /= dx
