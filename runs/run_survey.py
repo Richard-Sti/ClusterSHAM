@@ -52,6 +52,8 @@ def main():
     parser.add_argument('--path', type=str, help='Config file path.')
     parser.add_argument('--sub_id', type=str, help='Subsample ID')
     parser.add_argument('--nthreads', type=int, default=1, help='Subsample ID')
+    parser.add_argument('--conversion', type=float, default=0.,
+                        help='Additive little h conversion factor')
     args = parser.parse_args()
 
     survey_parser = SurveyConfigParser(args.path, args.sub_id)
@@ -67,7 +69,12 @@ def main():
     attr = survey_parser.cut_condition.attr[0]
     cut_range = survey_parser.cut_condition.ext_range
 
-    print('Calculating {} for {}'.format(attr, cut_range))
+    print("Calculating {} for {} with {} galaxies."
+          .format(attr, cut_range, survey['RA'].size), flush=True)
+    cut_range[0] += args.conversion
+    cut_range[1] += args.conversion
+    print("Cut will be saved as {} to {} to respect little h conversion"
+          .format(*cut_range), flush=True)
     res = wp_model.survey_jackknife(survey['RA'], survey['DEC'],
                                     survey['COMOVING_DIST'], randRA,
                                     randDEC, is_comoving=True,
@@ -78,11 +85,11 @@ def main():
                 'attr': attr})
     # A good place to append the external range here...
     fname = survey_parser.cnf['Main']['out_folder']
-    fname += "CF_{}_{}_{}_{}.p".format(attr, args.sub_id, *cut_range)
-    print("Saving results to {}".format(fname))
-    print(res)
+    fname += "CF_{}_{}.p".format(attr, args.sub_id)
+    print("Saving results to {}".format(fname), flush=True)
+    print(res, flush=True)
     dump(res, fname)
-    print("Done!")
+    print("Done!", flush=True)
 
 
 if __name__ == '__main__':

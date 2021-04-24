@@ -473,7 +473,7 @@ class Projected2PointCorrelation:
         data_bins = self._get_nearest(kmeans, RA, DEC)
         rand_bins = self._get_nearest(kmeans, randRA, randDEC)
         if verbose:
-            print('Calculated k-means clusters.')
+            print('Calculated k-means clusters.', flush=True)
         # Get the random redshifts
         randZ = self.random_redshifts(Z, randRA.size)
 
@@ -519,7 +519,8 @@ class Projected2PointCorrelation:
                     unit = 'hours'
 
                 print("Completed {}/{}. Estimated remaining time {:.2f} {}"
-                      .format(i+1, self.Njack, remaining_time, unit))
+                      .format(i+1, self.Njack, remaining_time, unit),
+                      flush=True)
 
         jack_wp = numpy.cov(wps, rowvar=False, bias=True) * (self.Njack - 1)
         # Want to know rpavg, need DD for the whole volume
