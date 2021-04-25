@@ -53,13 +53,14 @@ class PaperModel:
     """
 
     def __init__(self, AM, correlator, likelihood, bounds, cut_range,
-                 Nmocks=50, seed=42):
+                 Nmocks=50, seed=42, verbose=False):
         self._AM = None
         self._correlator = None
         self._likelihood = None
         self._bounds = None
         self._prior_dist = None
         self._Nmocks = None
+        self._verbose = None
         self._cut_range = None
 
         self.AM = AM
@@ -67,6 +68,7 @@ class PaperModel:
         self.likelihood = likelihood
         self.bounds = bounds
         self.Nmocks = Nmocks
+        self.verbose = verbose
         self.cut_range = cut_range
         # Set the random seed
         numpy.random.seed(seed)
@@ -188,6 +190,24 @@ class PaperModel:
             cut_range = cut_range[::-1]
         self._cut_range = cut_range
 
+    @property
+    def verbose(self):
+        """
+        Verbosity flag.
+
+        Returns
+        -------
+        verbose : bool
+            Class verbosity.
+        """
+
+    @verbose.setter
+    def verbose(self, verbose):
+        """Sets `self.verbose`."""
+        if not isinstance(verbose, bool):
+            raise TypeError("`Verbose` must be a bool.")
+        self._verbose = verbose
+
     def mock_wps(self, theta, halos):
         """
         Iteratively generates `self.Nmocks` galaxy mocks. At each iteration
@@ -209,7 +229,11 @@ class PaperModel:
             The stochastic covariance matrix.
         cov_jack : numpy.ndarray
             The jackknife covariance matrix.
+        rp_avg : numpy.ndarray
+            The average bin separation.
         """
+        if self.verbose:
+            print("Generating the deconvoluted catalog.", flush=True)
         deconv_cat = self.AM.deconvoluted_catalogs(theta, halos)
 
         wps = numpy.zeros(shape=(self.Nmocks, self.correlator.Nrpbins))
@@ -217,9 +241,13 @@ class PaperModel:
             mask = self.AM.add_scatter(deconv_cat, self.cut_range)
 
             if i == 0:
-                cov_jack, wp = self.correlator.mock_jackknife_cov(
+                if self.verbose:
+                    print("Jackknifing.", flush=True)
+                cov_jack, wp, rpavg = self.correlator.mock_jackknife_cov(
                         halos['x'][mask], halos['y'][mask], halos['z'][mask],
-                        return_rpavg=False)
+                        return_rpavg=True)
+                if self.verbose:
+                    print("Continuing stochastic.", flush=True)
             else:
                 wp = self.correlator.mock_wp(
                         halos['x'][mask], halos['y'][mask], halos['z'][mask])
@@ -229,7 +257,7 @@ class PaperModel:
         cov_stoch = numpy.cov(wps, rowvar=False, bias=True)
         mean_wp = numpy.mean(wps, axis=0)
 
-        return mean_wp, cov_stoch, cov_jack
+        return mean_wp, cov_stoch, cov_jack, rpavg
 
     def __call__(self, theta, halos, return_blobs=False):
         """
@@ -272,12 +300,13 @@ class PaperModel:
                 return numpy.nan, {}
             return numpy.nan
 
-        mean_wp, cov_stoch, cov_jack = self.mock_wps(theta, halos)
+        mean_wp, cov_stoch, cov_jack, rpavg = self.mock_wps(theta, halos)
         logl = self.likelihood(mean_wp, cov_stoch, cov_jack)
 
         if return_blobs:
             blobs = {'logl': logl,
                      'logp': logp,
+                     'rpavg': rpavg,
                      'wp': mean_wp,
                      'cov_stoch': cov_stoch,
                      'cov_jack': cov_jack}

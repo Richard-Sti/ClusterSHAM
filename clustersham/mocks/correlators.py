@@ -94,7 +94,6 @@ class Correlator:
         self._rpbins = rpbins
         self._Nrpbins = rpbins.size - 1
 
-
     @property
     def Nrpbins(self):
         """The number of radially projected bins."""
@@ -498,7 +497,6 @@ class Correlator:
             wps[i, :] = Corrfunc.utils.convert_rp_pi_counts_to_wp(
                     Nd_jack, Nd_jack, Nr_jack, Nr_jack, DD_jack, DR_jack,
                     RD_jack, RR_jack, nrpbins=self._Nrpbins, pimax=self.pimax)
-
 
         # The jackknife covariance matrix
         cov = numpy.cov(wps, rowvar=False, bias=True) * (self._Nsubs**2 - 1)
