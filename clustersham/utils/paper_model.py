@@ -13,6 +13,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import sys
 import numpy
 from scipy.stats import uniform
 
@@ -208,7 +209,7 @@ class PaperModel:
             raise TypeError("`Verbose` must be a bool.")
         self._verbose = verbose
 
-    def mock_wps(self, theta, halos):
+    def mock_wps(self, theta, halos, nthreads=1):
         """
         Iteratively generates `self.Nmocks` galaxy mocks. At each iteration
         the 2-point correlation function is calculated. Jackknifes the
@@ -220,6 +221,9 @@ class PaperModel:
             Dictionary of halo proxy parameters and scatter.
         halos : structured numpy.ndarray
             Array (with named fields) with halo properties.
+        nthreads : int, optional
+            Number of threads to evaluate the correlation functions.
+            By default a single thread.
 
         Returns
         -------
@@ -233,7 +237,8 @@ class PaperModel:
             The average bin separation.
         """
         if self.verbose:
-            print("Generating the deconvoluted catalog.", flush=True)
+            print("Generating the deconvoluted catalog.")
+            sys.stdout.flush()
         deconv_cat = self.AM.deconvoluted_catalogs(theta, halos)
 
         wps = numpy.zeros(shape=(self.Nmocks, self.correlator.Nrpbins))
@@ -242,15 +247,18 @@ class PaperModel:
 
             if i == 0:
                 if self.verbose:
-                    print("Jackknifing.", flush=True)
+                    print("Jackknifing.")
+                    sys.stdout.flush()
                 cov_jack, wp, rpavg = self.correlator.mock_jackknife_cov(
                         halos['x'][mask], halos['y'][mask], halos['z'][mask],
-                        return_rpavg=True)
+                        return_rpavg=True, nthreads=nthreads)
                 if self.verbose:
-                    print("Continuing stochastic.", flush=True)
+                    print("Continuing stochastic.")
+                    sys.stdout.flush()
             else:
                 wp = self.correlator.mock_wp(
-                        halos['x'][mask], halos['y'][mask], halos['z'][mask])
+                        halos['x'][mask], halos['y'][mask], halos['z'][mask],
+                        nthreads=nthreads)
 
             wps[i, :] = wp
 
@@ -259,7 +267,7 @@ class PaperModel:
 
         return mean_wp, cov_stoch, cov_jack, rpavg
 
-    def __call__(self, theta, halos, return_blobs=False):
+    def __call__(self, theta, halos, return_blobs=False, nthreads=1):
         """
         Calculates the log-posterior for halo proxy parameters and scatter.
         Returns `numpy.nan` if outside of prior boundaries.
@@ -274,6 +282,9 @@ class PaperModel:
             Whether to return blobs (logprior, loglikelihood, the mean
             2-point correlation function and the covariance matrices).
             By default False.
+        nthreads : int, optional
+            Number of threads to evaluate the correlation functions.
+            By default a single thread.
 
         Returns
         -------
@@ -300,7 +311,8 @@ class PaperModel:
                 return numpy.nan, {}
             return numpy.nan
 
-        mean_wp, cov_stoch, cov_jack, rpavg = self.mock_wps(theta, halos)
+        mean_wp, cov_stoch, cov_jack, rpavg = self.mock_wps(theta, halos,
+                                                            nthreads)
         logl = self.likelihood(mean_wp, cov_stoch, cov_jack)
 
         if return_blobs:
