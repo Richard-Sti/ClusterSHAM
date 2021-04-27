@@ -18,6 +18,7 @@ Correlator to calculate the 2-point correlation function and jackknife
 covariance matrix.
 """
 
+import sys
 import numpy
 import Corrfunc
 
@@ -417,6 +418,8 @@ class Correlator:
         try:
             if self._cache['Nd_last'] != Nd:
                 self._flush_cache()
+                print("Flushing the cache.")
+                sys.stdout.flush()
         except KeyError:
             if numpy.min(x) < 0 or numpy.min(y) < 0 or numpy.min(z) < 0:
                 raise ValueError("The simulation box must be cornered "
@@ -428,6 +431,8 @@ class Correlator:
         try:
             RRbox = self._cache['RRbox']
         except KeyError:
+            print("Counting the pairs.")
+            sys.stdout.flush()
             RRbox = self._count_pairs(xrand, yrand, zrand, nthreads=nthreads)
             self._cache.update({'RRbox': RRbox})
 
