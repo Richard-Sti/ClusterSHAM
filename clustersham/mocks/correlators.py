@@ -54,10 +54,13 @@ class Correlator:
     Nmult : int, optional
         How many more randoms than data in the jackknife calculation. By
         default 50.
+    verbose : bool, optional
+        Jackknife verbosity flag. By default `True`.
     """
     name = "Correlator"
 
-    def __init__(self, rpbins, pimax, boxsize, subside, Nmult=50):
+    def __init__(self, rpbins, pimax, boxsize, subside, Nmult=50,
+                 verbose=True):
         # Caching RR pair counts and random state
         self._cache = {}
         self._random_state = None
@@ -69,12 +72,14 @@ class Correlator:
         self._subside = None
         self._Nmult = None
         self._boxsize = None
+        self._verbose = None
         # And store these
         self.rpbins = rpbins
         self.boxsize = boxsize
         self.subside = subside
         self.pimax = pimax
         self.Nmult = Nmult
+        self.verbose = verbose
         # Number of jackknifes grids
         self._Nsubs = int(self.boxsize / self.subside)
 
@@ -159,6 +164,27 @@ class Correlator:
         if not isinstance(N, int):
             raise ValueError("'Nmult' must be of int type.")
         self._Nmult = N
+
+    @property
+    def verbose(self):
+        """
+        Jackknife verbosity flag.
+
+        Returns
+        -------
+        verbose : bool
+            Verbosity.
+        """
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, verbose):
+        """
+        Sets `verbose`, ensuring it is a boolean.
+        """
+        if not isinstance(verbose, bool):
+            raise TypeError("`verbose` must be a bool.")
+        self._verbose = verbose
 
     def _flush_cache(self):
         """
@@ -418,8 +444,9 @@ class Correlator:
         try:
             if self._cache['Nd_last'] != Nd:
                 self._flush_cache()
-                print("Flushing the cache.")
-                sys.stdout.flush()
+                if self.verbose:
+                    print("Flushing the cache.")
+                    sys.stdout.flush()
         except KeyError:
             if numpy.min(x) < 0 or numpy.min(y) < 0 or numpy.min(z) < 0:
                 raise ValueError("The simulation box must be cornered "
@@ -431,8 +458,9 @@ class Correlator:
         try:
             RRbox = self._cache['RRbox']
         except KeyError:
-            print("Counting the pairs.")
-            sys.stdout.flush()
+            if self.verbose:
+                print("Counting the global RR pairs.")
+                sys.stdout.flush()
             RRbox = self._count_pairs(xrand, yrand, zrand, nthreads=nthreads)
             self._cache.update({'RRbox': RRbox})
 
