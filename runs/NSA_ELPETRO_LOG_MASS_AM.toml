@@ -4,13 +4,13 @@ Nmocks = 50
 seed = 42
 CF_path = "../results/NSA_ELPETRO/"
 halos_path = "../data/hlist_mvir_mpeak.npy"
-attr = "ELPETRO_ABSMAG"
+attr = "ELPETRO_LOG_MASS"
 
 
 [AbundanceMatch]
 proxy = 'mvir_proxy'
-LFpath = '../data/surveys/LF_NSA_ELPETRO_Z015_h07.npy'
-ext_range = [-27.0, -17.0]
+MFpath = '../data/surveys/SMF_NSA_ELPETRO_Z015_h07.npy'
+ext_range = [9.4, 14.0]
 
 
 [Correlator]
@@ -18,5 +18,5 @@ subside = 25
 Nmult = 30
 
 [Bounds]
-alpha = [0.5, 2.0]
-scatter = [0.005, 0.55]
+alpha = [0.0, 2.0]
+scatter = [0.005, 0.35]

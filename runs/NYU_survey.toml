@@ -1,0 +1,138 @@
+[Main]
+path = "../data/surveys/kcorrect.nearest.petro.z0.00_with_zmax.fits"
+randoms_path = "../data/randoms/NSA_randoms.npy"
+out_folder = "../results/NYU/"
+Nmult = 25
+
+
+
+#=============================================================================#
+[Conditions]
+
+[Conditions.finite_condition_x_0]
+attr = 'ABSMAG'
+
+[Conditions.is_equal_condition]
+attr = 'ILSS'
+value = -1
+is_equal = false
+
+[Conditions.range_condition_x_1]
+attr = 'APPMAG'
+ext_range = [-1000.0, 17.7]
+
+[Conditions.range_condition_x_2]
+attr = 'Z'
+ext_range = [0.01, 0.15]
+
+# These cuts are assumed to be in h=1 (the data cosmology)
+# Hence looks different than the paper
+
+# Use _SUB_ delimiter to denote different subsamples
+[Conditions.range_condition_SUB_N1]
+attr = 'ABSMAG'
+ext_range = [-30.0, -22.01]
+
+[Conditions.range_condition_SUB_N2]
+attr = 'ABSMAG'
+ext_range = [-22.01, -21.2]
+
+[Conditions.range_condition_SUB_N3]
+attr = 'ABSMAG'
+ext_range = [-21.2, -20.64]
+
+[Conditions.range_condition_SUB_N4]
+attr = 'ABSMAG'
+ext_range = [-20.64, -19.45]
+
+[Conditions.range_condition_SUB_K1]
+attr = 'LOG_MASS'
+ext_range = [10.93, 15.0]
+
+[Conditions.range_condition_SUB_K2]
+attr = 'LOG_MASS'
+ext_range = [10.575, 10.93]
+
+[Conditions.range_condition_SUB_K3]
+attr = 'LOG_MASS'
+ext_range = [10.31, 10.575]
+
+[Conditions.range_condition_SUB_K4]
+attr = 'LOG_MASS'
+ext_range = [9.71, 10.31]
+
+#=============================================================================#
+[Routines]
+
+[Routines.LOG_MASS]
+kind = 'log_routine'
+attr = 'MASS'
+
+[Routines.APPMAG]
+kind = 'apparent_magnitude_routine'
+redshift = 'Z'
+absmag = 'ABSMAG'
+Kcorr = 'KCORRECT'
+
+[Routines.APPMAG.cosmo]
+kind = 'FlatLambdaCDM'
+H0 = 100
+Om0 = 0.295
+
+[Routines.COMOVING_DIST]
+kind = 'comoving_distance_routine'
+redshift = 'Z'
+
+[Routines.COMOVING_DIST.cosmo]
+kind = 'FlatLambdaCDM'
+H0 = 100
+Om0 = 0.295
+
+
+#=============================================================================#
+[Indices]
+
+[Indices.ABSMAG]
+column = 2
+
+[Indices.KCORRECT]
+column = 2
+
+#=============================================================================#
+[Little_h]
+
+[Little_h.luminosity_log_mass_little_h]
+attr = 'LOG_MASS'
+
+[Little_h.luminosity_log_mass_little_h.cosmo_data]
+kind = 'FlatLambdaCDM'
+H0 = 100
+Om0 = 0.295
+
+[Little_h.luminosity_log_mass_little_h.cosmo_out]
+kind = 'FlatLambdaCDM'
+H0 = 68.8
+Om0 = 0.295
+
+
+
+[Little_h.absolute_magnitude_little_h]
+attr = 'ABSMAG'
+
+[Little_h.absolute_magnitude_little_h.cosmo_data]
+kind = 'FlatLambdaCDM'
+H0 = 100
+Om0 = 0.295
+
+[Little_h.absolute_magnitude_little_h.cosmo_out]
+kind = 'FlatLambdaCDM'
+H0 = 68.8
+Om0 = 0.295
+
+#=============================================================================#
+[Correlator]
+rpmin = 0.1
+rpmax = 25
+nrpbins = 12
+pimax = 60
+Njack = 256
