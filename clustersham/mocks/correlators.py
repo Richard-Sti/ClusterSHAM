@@ -538,9 +538,12 @@ class Correlator:
             rpavg = numpy.zeros(self._Nrpbins)
             for i, rmin in enumerate(numpy.unique(DDbox['rmin'])):
                 mask = DDbox['rmin'] == rmin
-                rpavg[i] = numpy.average(DDbox['rpavg'][mask],
-                                         weights=DDbox['npairs'][mask])
-
+                weights = DDbox['npairs'][mask]
+                if np.sum(weights) == 0:
+                    rpavg[i] = numpy.nan
+                else:
+                    rpavg[i] = numpy.average(DDbox['rpavg'][mask],
+                                             weights=weights)
             return cov, wp, rpavg
         return cov, wp
 
@@ -566,4 +569,4 @@ class Correlator:
         """
         result = numpy.copy(box_counts)
         result['npairs'] -= (subbox_counts['npairs'] + nearby_counts['npairs'])
-        return result
+        freturn result
