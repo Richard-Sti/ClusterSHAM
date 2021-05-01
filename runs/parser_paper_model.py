@@ -36,14 +36,16 @@ class PaperModelConfigParser:
     ----------
         config_path : str
             Path to the toml config file.
-        CF_path : str
-            Path to the survey correlation function file.
+        sub_id: str
+            Subsample ID.
     """
 
-    def __init__(self, config_path, CF_path):
+    def __init__(self, config_path, sub_id):
         self.cnf = toml.load(config_path)
         # Make sure the CF actually loads
-        self.CF = load(CF_path)
+        main = self.cnf['Main']
+        CFpath = main['CF_path'] + "CF_{}_{}.p".format(main['attr'], sub_id)
+        self.CF = load(CFpath)
 
     def get_AM(self):
         """
@@ -75,8 +77,8 @@ class PaperModelConfigParser:
         except KeyError:
             raise ValueError("Invalid proxy name '{}'".format(proxy))
         # Make the kwargs object
-        kwargs = {'x': nd[:, 0],
-                  'phi': nd[:, 1],
+        kwargs = {'x': nd['proxy'],
+                  'phi': nd['phi'],
                   'faint_end_first': faint_end_first,
                   'scatter_mult': scatter_mult,
                   'halo_proxy': proxy,

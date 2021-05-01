@@ -1,0 +1,22 @@
+[Main]
+boxsize = 400
+Nmocks = 50
+seed = 42
+CF_path = "../results/NYU/"
+halos_path = "../data/hlist_mvir_mpeak.npy"
+attr = "LOG_MASS"
+
+
+[AbundanceMatch]
+proxy = 'mvir_proxy'
+MFpath = '../data/surveys/SMF_NYU_Z015_h07.npy'
+ext_range = [8.0, 13.0]
+
+
+[Correlator]
+subside = 25
+Nmult = 30
+
+[Bounds]
+alpha = [0.9, 2.0]
+scatter = [0.005, 0.85]
