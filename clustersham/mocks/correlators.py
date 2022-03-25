@@ -569,4 +569,4 @@ class Correlator:
         """
         result = numpy.copy(box_counts)
         result['npairs'] -= (subbox_counts['npairs'] + nearby_counts['npairs'])
-        freturn result
+        return result
